@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:package:video_player/video_player.dart';
-import 'package:url_launcher/url_launcher.dart'; // Website open karne ke liye
+import 'package:video_player/video_player.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'firebase_options.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
@@ -182,7 +182,6 @@ class _SplashScreenState extends State<SplashScreen> {
                 )
               : const Center(child: CircularProgressIndicator(color: Colors.orange)),
 
-          // Light Dark Overlay taaki text aur poster dono balanced dikhein
           Container(color: Colors.black.withOpacity(0.35)),
 
           SafeArea(
@@ -210,7 +209,6 @@ class _SplashScreenState extends State<SplashScreen> {
                   // BOTTOM SECTION: Clean Progress & Circular Logo
                   Column(
                     children: [
-                      // Percentage & Loading Status (Neeche shift kiya gaya hai)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -260,7 +258,6 @@ class _SplashScreenState extends State<SplashScreen> {
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              // Circular Logo
                               ClipOval(
                                 child: Image.asset(
                                   'assets/Image/ticbull.jpg', 
