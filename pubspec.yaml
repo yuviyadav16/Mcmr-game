@@ -8,10 +8,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # FIX: Yahan se ^ hata diya hai taaki versions auto-update na hon
-  shared_preferences: 2.2.2
-  video_player: 2.8.2
-  audioplayers: 5.2.1
+  # Naye aur latest versions jo automatically naye SDK ko support karte hain
+  shared_preferences: ^2.3.2
+  video_player: ^2.9.2
+  audioplayers: ^6.1.1
 
 dev_dependencies:
   flutter_test:
