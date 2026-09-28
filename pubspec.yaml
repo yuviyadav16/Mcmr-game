@@ -1,0 +1,14 @@
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.2.2  # Login save rakhne ke liye
+  video_player: ^2.8.2        # Background video ke liye
+  audioplayers: ^5.2.1        # BGM aur timer sound ke liye
+
+# Tumhare assets folder ka setup (Bilkul exact wahi jo tumne GitHub pe banaya hai)
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/Image/
+    - assets/Video/
+    - assets/audio/
