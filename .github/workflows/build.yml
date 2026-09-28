@@ -26,7 +26,6 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # Purane folders delete karke naye fresh folders force-create karna
       - name: Force Recreate Native Folders
         run: |
           rm -rf android ios
@@ -39,16 +38,17 @@ jobs:
         run: dart run flutter_launcher_icons
 
       # ==========================================
-      # YAHAN HAI FINAL FIX (SDK 36 KAR DIYA HAI)
+      # 100% BULLETPROOF PYTHON FIX FOR MAC
       # ==========================================
-      - name: Fix Android SDK Version to 36
+      - name: Fix Android SDK Version
         run: |
-          if [ -f android/app/build.gradle ]; then
-            sed -i '' 's/flutter\.compileSdkVersion/36/g' android/app/build.gradle
-          fi
-          if [ -f android/app/build.gradle.kts ]; then
-            sed -i '' 's/flutter\.compileSdkVersion/36/g' android/app/build.gradle.kts
-          fi
+          python3 -c "
+          import os
+          for f in ['android/app/build.gradle', 'android/app/build.gradle.kts']:
+              if os.path.exists(f):
+                  content = open(f).read()
+                  open(f, 'w').write(content.replace('flutter.compileSdkVersion', '36'))
+          "
 
       # ==========================================
       # ANDROID BUILD & UPLOAD (APK)
