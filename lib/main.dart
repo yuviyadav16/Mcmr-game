@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'video_player.dart'; // Make sure video_player package is imported
+import 'package:video_player/video_player.dart';// Make sure video_player package is imported
 import 'firebase_options.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
