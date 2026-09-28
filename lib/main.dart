@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:firebase_core/firebase_core.dart'; // Naya: Firebase Core Package
-import 'firebase_options.dart'; // Naya: Tumhari API keys wali file
+import 'package:firebase_core/firebase_core.dart'; 
+import 'package:firebase_auth/package:firebase_auth.dart'; // Naya: User ka login status check karne ke liye
+import 'firebase_options.dart'; 
 import 'home_screen.dart';
+import 'login_screen.dart'; // Naya: Tumhari VIP Login Screen link ho gayi
 
-void main() async { // Naya: 'async' lagana zaroori hai kyunki hum backend se connect kar rahe hain
-  // Ye line app ko initialize hone se pehle crash hone se rokti hai
+void main() async { 
   WidgetsFlutterBinding.ensureInitialized(); 
   
-  // Naya: Yahan tumhara Firebase Database game start hote hi initialize ho jayega
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -25,9 +25,9 @@ class ChaiAndChaseApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Chai & Chase',
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: Colors.black, // Ekdum professional dark look
+        scaffoldBackgroundColor: Colors.black, 
       ),
-      home: const SplashScreen(), // Game start hote hi Loading screen aayegi
+      home: const SplashScreen(), 
     );
   }
 }
@@ -52,14 +52,23 @@ class _SplashScreenState extends State<SplashScreen> {
   void _startLoading() {
     // 15 Second ka exact timer
     Timer(const Duration(seconds: 15), () {
-      // 'mounted' check sabse zaroori hai! Ye confirm karta hai ki app 
-      // background me band nahi hui hai. Isse app C-R-A-S-H nahi hoti.
       if (mounted) {
-        // Direct nayi Home Screen par bhej do (Bina login ke)
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()), 
-        );
+        // Z++ SECURITY CHECK: Dekho user pehle se login hai kya?
+        User? currentUser = FirebaseAuth.instance.currentUser;
+
+        if (currentUser != null && currentUser.emailVerified) {
+          // Agar verified user already login hai, toh direct Home Screen (Game)
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()), 
+          );
+        } else {
+          // Agar naya user hai ya email verify nahi kiya, toh Login Screen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()), 
+          );
+        }
       }
     });
   }
@@ -74,8 +83,6 @@ class _SplashScreenState extends State<SplashScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Yahan tum apna Logo.png bhi laga sakte ho
-                // Image.asset('assets/Image/Logo.png', width: 150),
                 const SizedBox(height: 20),
                 const Text(
                   'CHAI & CHASE',
@@ -87,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                const CircularProgressIndicator(color: Colors.white), // Loading Spinner
+                const CircularProgressIndicator(color: Colors.white), 
                 const SizedBox(height: 10),
                 const Text('Loading assets...', style: TextStyle(color: Colors.grey)),
               ],
@@ -114,7 +121,6 @@ class _SplashScreenState extends State<SplashScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Tumhara Ticbull ka logo
                       Image.asset(
                         'assets/Image/ticbull.jpg', 
                         width: 30, 
