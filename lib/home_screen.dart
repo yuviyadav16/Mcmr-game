@@ -13,16 +13,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> {
   late VideoPlayerController _videoController;
-  late AudioPlayer _bgmPlayer;     // 2308.mp3 (Continuous)
-  late AudioPlayer _intervalPlayer; // 2307.mp3 (Har 15 sec)
+  late AudioPlayer _audioPlayer;
   
-  // Animation Controller for "Tap to Play" pulsing effect
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-
-  // Real Data Variables
   int coins = 0;
   int diamonds = 0;
   String userDisplay = "Guest User";
@@ -32,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.initState();
     _loadUserData();
 
-    // 1. HD Background Video (1111.mp4)
+    // HD Background Video (1111.mp4) optimized
     _videoController = VideoPlayerController.asset('assets/Video/1111.mp4')
       ..initialize().then((_) {
         _videoController.setLooping(true);
@@ -40,110 +34,44 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         setState(() {});
       });
 
-    // 2. Dual Audio Management
-    _initAudioSystem();
-
-    // 3. Smooth Pulsing Animation for Play Button
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
-    
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
+    // Single stable audio player to prevent crashes
+    _audioPlayer = AudioPlayer();
+    _initAudio();
   }
 
-  // Dual Audio & 15-Sec Interval Logic
-  void _initAudioSystem() async {
-    // Continuous BGM (2308.mp3)
-    _bgmPlayer = AudioPlayer();
-    _bgmPlayer.setReleaseMode(ReleaseMode.loop);
-    await _bgmPlayer.play(AssetSource('audio/2308.mp3'));
-
-    // Interval Sound (2307.mp3) - Har 15 second par play hoga
-    _intervalPlayer = AudioPlayer();
-    Future.delayed(const Duration(seconds: 15), () {
-      _playIntervalSoundLoop();
-    });
+  void _initAudio() async {
+    try {
+      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      await _audioPlayer.play(AssetSource('audio/2308.mp3'));
+    } catch (e) {
+      print("Audio error: $e");
+    }
   }
 
-  void _playIntervalSoundLoop() async {
-    if (!mounted) return;
-    await _intervalPlayer.play(AssetSource('audio/2307.mp3'));
-    Future.delayed(const Duration(seconds: 15), () {
-      _playIntervalSoundLoop();
-    });
-  }
-
-  // Real Data & Login Status Fetch
   Future<void> _loadUserData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    
-    // Firebase se check karo ki user ka email logged-in hai ya nahi
     User? firebaseUser = FirebaseAuth.instance.currentUser;
     if (firebaseUser != null && firebaseUser.email != null) {
       setState(() {
         userDisplay = firebaseUser.email!;
       });
     } else {
-      // Fallback to local preference
       setState(() {
         userDisplay = prefs.getString('user_email') ?? "Guest User";
       });
     }
 
     setState(() {
-      coins = prefs.getInt('total_coins') ?? 15583; // Default sample coins
-      diamonds = prefs.getInt('total_diamonds') ?? 7; // Default sample diamonds
+      coins = prefs.getInt('total_coins') ?? 15583;
+      diamonds = prefs.getInt('total_diamonds') ?? 7;
     });
   }
 
   @override
   void dispose() {
     _videoController.dispose();
-    _bgmPlayer.dispose();
-    _intervalPlayer.dispose();
-    _pulseController.dispose();
+    _audioPlayer.dispose();
     super.dispose();
-  }
-
-  // Profile Popup (Email vs Guest details)
-  void _showProfilePopup(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black87,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.orangeAccent)),
-        title: const Text("PLAYER IDENTITY", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Logged in as:", style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-            const SizedBox(height: 5),
-            Text(userDisplay, style: const TextStyle(color: Colors.orangeAccent, fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-            const Text("Your game progress is synced securely with Ticbull Cloud.", style: TextStyle(color: Colors.white70, fontSize: 13)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("CLOSE", style: TextStyle(color: Colors.white)),
-          ),
-          if (userDisplay == "Guest User")
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
-              },
-              child: const Text("LOGIN NOW", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-            ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -153,7 +81,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. HD Background Video (1111.mp4)
           _videoController.value.isInitialized
               ? SizedBox.expand(
                   child: FittedBox(
@@ -167,34 +94,30 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 )
               : const Center(child: CircularProgressIndicator(color: Colors.orange)),
 
-          // Subtle Dark Overlay for professional contrast
-          Container(color: Colors.black.withOpacity(0.3)),
-
-          // 2. Main UI Layout (Subway Surfers Style)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // TOP BAR: Diamonds, Coins, Profile, Settings
+                  // TOP BAR: Coins & Diamonds (NO BOX - Clean Look)[span_5](start_span)[span_5](end_span)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Currencies
                       Row(
                         children: [
-                          _buildStatBadge('assets/Image/4444.png', diamonds.toString(), Colors.cyanAccent),
-                          const SizedBox(width: 8),
-                          _buildStatBadge('assets/Image/3333.png', coins.toString(), Colors.amber),
+                          _buildCleanStat('assets/Image/4444.png', diamonds.toString()),
+                          const SizedBox(width: 15),
+                          _buildCleanStat('assets/Image/3333.png', coins.toString()),
                         ],
                       ),
-                      // Top Action Buttons
                       Row(
                         children: [
                           IconButton(
                             icon: const Icon(Icons.person_outline, color: Colors.white, size: 28),
-                            onPressed: () => _showProfilePopup(context),
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+                            },
                           ),
                           IconButton(
                             icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 28),
@@ -207,49 +130,30 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ],
                   ),
 
-                  // CENTER: Glowing "TAP TO PLAY" Button with Smooth Animation
-                  ScaleTransition(
-                    scale: _pulseAnimation,
-                    child: GestureDetector(
-                      onTap: () {
-                        // TODO: Navigate to actual Game Play Screen
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Launching Game Engine... 🎮")),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 45, vertical: 16),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF9800), Color(0xFFE65100)],
-                          ),
-                          borderRadius: BorderRadius.circular(35),
-                          border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.orange.withOpacity(0.8),
-                              blurRadius: 20,
-                              spreadRadius: 4,
-                            ),
-                          ],
-                        ),
+                  // CENTER: Small Clean "Tap to Play" without heavy box[span_6](start_span)[span_6](end_span)
+                  Column(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          // Game Play navigation
+                        },
                         child: const Text(
                           "Tap to Play",
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 2.5,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2.0,
                             shadows: [
-                              Shadow(color: Colors.black45, offset: Offset(2, 2), blurRadius: 4),
+                              Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
                             ],
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
 
-                  // BOTTOM NAVIGATION DOCK (Missions, Me, Shop, Events)
+                  // BOTTOM NAVIGATION DOCK
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -270,24 +174,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildStatBadge(String imagePath, String value, Color borderColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor, width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Image.asset(imagePath, width: 20, height: 20),
-          const SizedBox(width: 6),
-          Text(
-            value,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+  Widget _buildCleanStat(String imagePath, String value) {
+    return Row(
+      children: [
+        Image.asset(imagePath, width: 22, height: 22),
+        const SizedBox(width: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            shadows: [Shadow(color: Colors.black, blurRadius: 4)],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -298,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         width: 75,
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.7),
+          color: Colors.black.withOpacity(0.6),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white24, width: 1),
         ),
