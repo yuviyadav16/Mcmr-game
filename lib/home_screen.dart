@@ -1,32 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'profile_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   late VideoPlayerController _videoController;
   late AudioPlayer _audioPlayer;
+  
+  // Real Data Variables
+  int coins = 0;
+  int diamonds = 0;
 
   @override
   void initState() {
     super.initState();
-    
-    // 1. Background Video Load karna (1111.mp4)
+    _loadRealData(); // Game start hote hi real coins load honge
+
     _videoController = VideoPlayerController.asset('assets/Video/1111.mp4')
       ..initialize().then((_) {
-        _videoController.setLooping(true); // Video lagatar chalti rahegi
+        _videoController.setLooping(true);
         _videoController.play();
         setState(() {});
       });
 
-    // 2. Background Music Play karna (2308.mp3)
     _audioPlayer = AudioPlayer();
     _audioPlayer.setReleaseMode(ReleaseMode.loop);
     _audioPlayer.play(AssetSource('audio/2308.mp3'));
+  }
+
+  // Real Data Fetch Karne ka Logic
+  Future<void> _loadRealData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      // Agar pehli baar game khula hai, toh 0 aayega
+      coins = prefs.getInt('total_coins') ?? 0; 
+      diamonds = prefs.getInt('total_diamonds') ?? 0;
+    });
   }
 
   @override
@@ -43,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Video Overlay
+          // Background Video
           _videoController.value.isInitialized
               ? SizedBox.expand(
                   child: FittedBox(
@@ -55,84 +73,72 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 )
-              : Center(child: CircularProgressIndicator(color: Colors.orange)),
+              : const Center(child: CircularProgressIndicator(color: Colors.orange)),
 
-          // Video ko thoda dark karne ke liye taaki text clear dikhe
           Container(color: Colors.black.withOpacity(0.4)),
 
-          // Main Game UI Elements
           SafeArea(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Top Bar: Coins aur Diamonds
+                // TOP BAR: Coins, Diamonds, Profile, Settings
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 10.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Coins (3333.png)
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.amber, width: 1.5)
-                        ),
-                        child: Row(
-                          children: [
-                            Image.asset('assets/Image/3333.png', width: 24, height: 24),
-                            SizedBox(width: 8),
-                            Text("1,500", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
+                      // Coins & Diamonds (Real Data)
+                      Row(
+                        children: [
+                          _buildStatBadge('assets/Image/3333.png', coins.toString(), Colors.amber),
+                          const SizedBox(width: 10),
+                          _buildStatBadge('assets/Image/4444.png', diamonds.toString(), Colors.cyanAccent),
+                        ],
                       ),
-                      // Diamonds (4444.png)
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.cyanAccent, width: 1.5)
-                        ),
-                        child: Row(
-                          children: [
-                            Image.asset('assets/Image/4444.png', width: 24, height: 24),
-                            SizedBox(width: 8),
-                            Text("50", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
+                      // Buttons
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.person, color: Colors.white, size: 28),
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.settings, color: Colors.white, size: 28),
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
 
-                // Center: Play Button
+                // PLAY BUTTON
                 GestureDetector(
                   onTap: () {
-                    // Yahan character run karne ka logic aayega
+                    // Start Game Logic
                   },
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 50, vertical: 18),
+                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 18),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.orangeAccent, Colors.deepOrange],
-                      ),
+                      gradient: const LinearGradient(colors: [Colors.orangeAccent, Colors.deepOrange]),
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
                         BoxShadow(color: Colors.orange.withOpacity(0.6), blurRadius: 15, spreadRadius: 3)
                       ],
                     ),
-                    child: Text(
+                    child: const Text(
                       "TAP TO CHASE",
                       style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: 2),
                     ),
                   ),
                 ),
 
-                // Bottom: Publisher Branding
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 20),
                   child: Text(
                     "LOGICAL MIRCHI GAMING",
                     style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 3, fontWeight: FontWeight.w500),
@@ -141,6 +147,24 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatBadge(String imagePath, String value, Color borderColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 1.5)
+      ),
+      child: Row(
+        children: [
+          Image.asset(imagePath, width: 20, height: 20),
+          const SizedBox(width: 6),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       ),
     );
