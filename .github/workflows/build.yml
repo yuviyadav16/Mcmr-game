@@ -26,7 +26,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # FIX 1: Purane folders delete karke naye fresh folders force-create karna
+      # Purane folders delete karke naye fresh folders force-create karna
       - name: Force Recreate Native Folders
         run: |
           rm -rf android ios
@@ -38,14 +38,16 @@ jobs:
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
-      # FIX 2: Smart Script jo .gradle aur .kts dono formats me SDK 34 set karegi
-      - name: Fix Android SDK Version
+      # ==========================================
+      # YAHAN HAI NAYA FIX (SDK 35 KAR DIYA HAI)
+      # ==========================================
+      - name: Fix Android SDK Version to 35
         run: |
           if [ -f android/app/build.gradle ]; then
-            sed -i '' 's/flutter\.compileSdkVersion/34/g' android/app/build.gradle
+            sed -i '' 's/flutter\.compileSdkVersion/35/g' android/app/build.gradle
           fi
           if [ -f android/app/build.gradle.kts ]; then
-            sed -i '' 's/flutter\.compileSdkVersion/34/g' android/app/build.gradle.kts
+            sed -i '' 's/flutter\.compileSdkVersion/35/g' android/app/build.gradle.kts
           fi
 
       # ==========================================
@@ -73,3 +75,4 @@ jobs:
           name: Chai-and-Chase-iPhone-App
           path: build/ios/iphoneos
           retention-days: 1
+
