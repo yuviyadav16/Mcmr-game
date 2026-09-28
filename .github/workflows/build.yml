@@ -1,0 +1,50 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Taaki tum manually bhi 'Run workflow' daba sako
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Repository ka code fetch karna
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Java (JDK 17) Setup karna
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. Flutter SDK Setup karna
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: 'stable'
+          cache: true
+
+      # 4. Dependencies install karna
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # 5. App ka Logo (`Logo.png`) generate karna
+      - name: Generate App Icon
+        run: dart run flutter_launcher_icons
+
+      # 6. Release APK Build karna
+      - name: Build Release APK
+        run: flutter build apk --release
+
+      # 7. APK Upload karna (24 Ghante baad automatic delete logic)
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Chai-and-Chase-Release-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 1 # Exactly 24 ghante (1 din) baad automatic delete ho jayega!
