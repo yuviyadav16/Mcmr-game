@@ -45,31 +45,43 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   late VideoPlayerController _videoController;
   int progressPercent = 0;
-  late Timer _progressTimer;
-  late Timer _navigationTimer;
+  Timer? _progressTimer;
+  Timer? _navigationTimer;
 
   @override
   void initState() {
     super.initState();
-    
-    // Background Video (2222.mp4)
+    _initVideo();
+    _startLoadingAnimation();
+  }
+
+  // Crash-Proof Video Initialization
+  void _initVideo() {
     _videoController = VideoPlayerController.asset('assets/Video/2222.mp4')
       ..initialize().then((_) {
-        _videoController.setLooping(true);
-        _videoController.play();
-        setState(() {});
-      });
-
-    // 0% to 100% Smooth Counter (15 Seconds)
-    _progressTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
-      setState(() {
-        if (progressPercent < 100) {
-          progressPercent += 1;
+        if (mounted) {
+          _videoController.setLooping(true);
+          _videoController.setVolume(0.0); // Background UI video muted
+          _videoController.play();
+          setState(() {});
         }
+      }).catchError((error) {
+        debugPrint("Splash Video Error: $error");
       });
+  }
+
+  // Smooth Loading Logic
+  void _startLoadingAnimation() {
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
+      if (mounted && progressPercent < 100) {
+        setState(() {
+          progressPercent += 1;
+        });
+      } else {
+        timer.cancel();
+      }
     });
 
-    // 15 Seconds ke baad Entry Modal Popup dikhana
     _navigationTimer = Timer(const Duration(seconds: 15), () {
       if (mounted) {
         _showEntryOptionsModal(context);
@@ -77,15 +89,18 @@ class _SplashScreenState extends State<SplashScreen> {
     });
   }
 
-  // Website kholne ka function (ticbull.in)
-  void _openTicbullWebsite() async {
+  // Robust External URL Launcher
+  Future<void> _openTicbullWebsite() async {
     final Uri url = Uri.parse('https://ticbull.in');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        debugPrint('Could not launch $url');
+      }
+    } catch (e) {
+      debugPrint('Error launching URL: $e');
     }
   }
 
-  // Dual Entry Modal (Email Login vs Guest)
   void _showEntryOptionsModal(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -94,58 +109,54 @@ class _SplashScreenState extends State<SplashScreen> {
       backgroundColor: Colors.black.withOpacity(0.95),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-        side: BorderSide(color: Colors.orangeAccent, width: 1),
+        side: BorderSide(color: Colors.orangeAccent, width: 1.5),
       ),
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.all(30.0),
+          padding: const EdgeInsets.symmetric(horizontal: 25.0, vertical: 35.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
                 "CHAI & CHASE",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.white),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2.5, color: Colors.white),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               const Text(
-                "Choose how you want to enter the game",
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+                "Select your entry method",
+                style: TextStyle(color: Colors.white60, fontSize: 14),
               ),
-              const SizedBox(height: 30),
-
-              // 1. CONTINUE WITH EMAIL (Cloud Sync)
+              const SizedBox(height: 35),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size(double.infinity, 55),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  elevation: 5,
                 ),
-                icon: const Icon(Icons.email_outlined),
-                label: const Text("CONTINUE WITH EMAIL", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                icon: const Icon(Icons.email_rounded, size: 22),
+                label: const Text("CONTINUE WITH EMAIL", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
                 onPressed: () {
                   Navigator.pop(context);
                   Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
                 },
               ),
-              const SizedBox(height: 15),
-
-              // 2. PLAY AS GUEST (Instant Entry)
+              const SizedBox(height: 20),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.orangeAccent, width: 1.5),
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  side: const BorderSide(color: Colors.orangeAccent, width: 2),
+                  minimumSize: const Size(double.infinity, 55),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
-                icon: const Icon(Icons.play_arrow_rounded, color: Colors.orangeAccent),
-                label: const Text("PLAY AS GUEST", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                icon: const Icon(Icons.play_arrow_rounded, color: Colors.orangeAccent, size: 28),
+                label: const Text("PLAY AS GUEST", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
                 onPressed: () {
                   Navigator.pop(context);
                   Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
                 },
               ),
-              const SizedBox(height: 10),
             ],
           ),
         );
@@ -155,9 +166,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   void dispose() {
+    _progressTimer?.cancel();
+    _navigationTimer?.cancel();
     _videoController.dispose();
-    _progressTimer.cancel();
-    _navigationTimer.cancel();
     super.dispose();
   }
 
@@ -168,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Video / Poster
+          // Background Video Layer
           _videoController.value.isInitialized
               ? SizedBox.expand(
                   child: FittedBox(
@@ -182,99 +193,139 @@ class _SplashScreenState extends State<SplashScreen> {
                 )
               : const Center(child: CircularProgressIndicator(color: Colors.orange)),
 
-          Container(color: Colors.black.withOpacity(0.35)),
+          // Dark Gradient Overlay for better contrast
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.4),
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.8),
+                ],
+              ),
+            ),
+          ),
 
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
+              padding: const EdgeInsets.all(24.0),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // TOP: Stylish Game Title
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [Colors.white, Colors.orangeAccent],
-                    ).createShader(bounds),
-                    child: const Text(
-                      'CHAI & CHASE',
-                      style: TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 3.5,
-                        color: Colors.white,
+                  // CENTERED TITLE
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [Colors.yellowAccent, Colors.deepOrangeAccent],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ).createShader(bounds),
+                            child: const Text(
+                              'CHAI & CHASE',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 48, // Big and professional
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 4.0,
+                                color: Colors.white,
+                                shadows: [
+                                  Shadow(color: Colors.black87, blurRadius: 15, offset: Offset(0, 5)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            "ENDLESS RUNNER",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              letterSpacing: 6.0,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
 
-                  // BOTTOM SECTION: Clean Progress & Circular Logo
+                  // BOTTOM SECTION (Loading Bar + Platform Link)
                   Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
                             'Loading assets...',
-                            style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 1),
+                            style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 1),
                           ),
                           Text(
                             '$progressPercent%',
                             style: const TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w900,
                               color: Colors.orangeAccent,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(
-                        value: progressPercent / 100,
-                        backgroundColor: Colors.white24,
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.orangeAccent),
-                        minHeight: 5,
+                      const SizedBox(height: 12),
+                      
+                      // Upgraded Professional Loading Bar
+                      Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(color: Colors.orangeAccent.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 2))
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: LinearProgressIndicator(
+                            value: progressPercent / 100,
+                            backgroundColor: Colors.white24,
+                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.orangeAccent),
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 35),
 
-                      // POWERED BY + CIRCULAR LOGO (Clickable to ticbull.in)
-                      GestureDetector(
+                      // POWERED BY BUTTON
+                      InkWell(
                         onTap: _openTicbullWebsite,
+                        borderRadius: BorderRadius.circular(30),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black87,
                             borderRadius: BorderRadius.circular(30),
-                            border: Border.all(color: Colors.white24, width: 1),
+                            border: Border.all(color: Colors.white30, width: 1.5),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10, offset: const Offset(0, 4)),
+                            ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Text(
                                 'POWERED BY',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 9,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: TextStyle(color: Colors.white60, fontSize: 10, letterSpacing: 2.0, fontWeight: FontWeight.w800),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 12),
                               ClipOval(
-                                child: Image.asset(
-                                  'assets/Image/ticbull.jpg', 
-                                  width: 22, 
-                                  height: 22,
-                                  fit: BoxFit.cover,
-                                ),
+                                child: Image.asset('assets/Image/ticbull.jpg', width: 24, height: 24, fit: BoxFit.cover),
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 8),
                               const Text(
                                 'TICBULL',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.5,
-                                  color: Colors.white,
-                                ),
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: Colors.white),
                               ),
                             ],
                           ),
