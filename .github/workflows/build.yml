@@ -26,8 +26,11 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Create Flutter Native Folders
-        run: flutter create --project-name chai_and_chase .
+      # FIX 1: Purane folders delete karke naye fresh folders force-create karna
+      - name: Force Recreate Native Folders
+        run: |
+          rm -rf android ios
+          flutter create --project-name chai_and_chase --platforms android,ios .
 
       - name: Install Dependencies
         run: flutter pub get
@@ -35,11 +38,15 @@ jobs:
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
-      # ==========================================
-      # YAHAN HAI NAYA FIX (AUDIO PLAYER SDK 34 FIX)
-      # ==========================================
-      - name: Fix Android SDK Version to 34
-        run: sed -i '' 's/flutter.compileSdkVersion/34/g' android/app/build.gradle
+      # FIX 2: Smart Script jo .gradle aur .kts dono formats me SDK 34 set karegi
+      - name: Fix Android SDK Version
+        run: |
+          if [ -f android/app/build.gradle ]; then
+            sed -i '' 's/flutter\.compileSdkVersion/34/g' android/app/build.gradle
+          fi
+          if [ -f android/app/build.gradle.kts ]; then
+            sed -i '' 's/flutter\.compileSdkVersion/34/g' android/app/build.gradle.kts
+          fi
 
       # ==========================================
       # ANDROID BUILD & UPLOAD (APK)
