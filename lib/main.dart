@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'home_screen.dart'; // Tumhara naya video wala Home Screen yahan connect ho gaya
 
 void main() {
+  // Ye line app ko initialize hone se pehle crash hone se rokti hai
+  WidgetsFlutterBinding.ensureInitialized(); 
   runApp(const ChaiAndChaseApp());
 }
 
@@ -15,7 +17,7 @@ class ChaiAndChaseApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Chai & Chase',
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: Colors.black, // Ekdum professional dark look
+        scaffoldBackgroundColor: Colors.black, 
       ),
       home: const SplashScreen(), // Game start hote hi Loading screen aayegi
     );
@@ -23,7 +25,7 @@ class ChaiAndChaseApp extends StatelessWidget {
 }
 
 // ==========================================
-// 1. LOADING SCREEN (15 Seconds)
+// 1. LOADING SCREEN (15 Seconds - Crash Proof)
 // ==========================================
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -36,26 +38,22 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _startLoadingAndCheckLogin();
+    _startLoading();
   }
 
-  void _startLoadingAndCheckLogin() async {
-    // 15 Second ka Timer (Tumhari requirement ke hisaab se)
-    await Future.delayed(const Duration(seconds: 15));
-
-    // Check karna ki user pehle login kar chuka hai ya nahi
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-
-    if (isLoggedIn) {
-      // Agar pehle se login hai, toh seedha Home Screen
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (context) => const HomeScreen()));
-    } else {
-      // Naya user hai, toh Login Screen
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-    }
+  void _startLoading() {
+    // 15 Second ka exact timer
+    Timer(const Duration(seconds: 15), () {
+      // 'mounted' check sabse zaroori hai! Ye confirm karta hai ki app 
+      // background me band nahi hui hai. Isse app C-R-A-S-H nahi hoti.
+      if (mounted) {
+        // Direct nayi Home Screen par bhej do (Bina login ke)
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomeScreen()), 
+        );
+      }
+    });
   }
 
   @override
@@ -68,8 +66,6 @@ class _SplashScreenState extends State<SplashScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Yahan tum apna Logo.png bhi laga sakte ho
-                // Image.asset('assets/Image/Logo.png', width: 150),
                 const SizedBox(height: 20),
                 const Text(
                   'CHAI & CHASE',
@@ -81,7 +77,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                const CircularProgressIndicator(color: Colors.white), // Loading Spinner
+                const CircularProgressIndicator(color: Colors.white), 
                 const SizedBox(height: 10),
                 const Text('Loading assets...', style: TextStyle(color: Colors.grey)),
               ],
@@ -130,89 +126,6 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ==========================================
-// 2. LOGIN SCREEN (Email & Guest)
-// ==========================================
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-
-  // Login save karne ka function
-  void _loginUser(BuildContext context, String loginType) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true); // Permanent save kar diya
-    await prefs.setString('loginType', loginType); // Guest ya Email save rakha
-
-    // Login hone ke baad Home Screen bhej do
-    Navigator.pushReplacement(
-        context, MaterialPageRoute(builder: (context) => const HomeScreen()));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(30.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'WELCOME TO CHAI & CHASE',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 50),
-              
-              // Email Button
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                onPressed: () => _loginUser(context, 'Email'),
-                child: const Text('CONTINUE WITH EMAIL', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 20),
-              
-              // Guest Button
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                onPressed: () => _loginUser(context, 'Guest'),
-                child: const Text('PLAY AS GUEST'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ==========================================
-// 3. HOME SCREEN (Isme baad me hum 1111.mp4 lagayenge)
-// ==========================================
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text(
-          'HOME SCREEN\n(Yahan tumhara 1111.mp4 chalega)',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 24),
-        ),
       ),
     );
   }
