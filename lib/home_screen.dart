@@ -14,94 +14,85 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late VideoPlayerController _videoController;
   
-  late AudioPlayer _bgmPlayer;
-  late AudioPlayer _sfxPlayer;
+  late AudioPlayer _bgmPlayer; // 2308.mp3 (Background Music)
+  late AudioPlayer _sfxPlayer; // 2307.mp3 (15 sec Sound Effect)
   Timer? _sfxTimer;
   
-  // Fake data hataya, default 0 rakha hai
-  int coins = 0;
+  late AnimationController _blinkController;
+  late Animation<double> _blinkAnimation;
+  
+  int coins = 0; 
   int diamonds = 0;
-  String userDisplay = "Guest User";
 
   @override
   void initState() {
     super.initState();
-    _setupAudioContext(); // Audio mix karne ka naya function
     _loadUserData();
     _initVideo();
     _initAudio();
-  }
 
-  // YAHAN FIX HAI: Video aur Audio dono ek sath chalenge bina ruke
-  Future<void> _setupAudioContext() async {
-    final audioContext = AudioContext(
-      android: const AudioContextAndroid(
-        isSpeakerphoneOn: true,
-        audioMode: AndroidAudioMode.normal,
-        stayAwake: true,
-        contentType: AndroidContentType.music,
-        usageType: AndroidUsageType.media,
-        audioFocus: AndroidAudioFocus.none, // Isse video nahi rukega
-      ),
-      iOS: AudioContextIOS(
-        category: AVAudioSessionCategory.ambient,
-        options: const [AVAudioSessionOptions.mixWithOthers], // iOS ke liye mix
-      ),
-    );
-    await AudioPlayer.global.setAudioContext(audioContext);
+    // "TAP TO PLAY" ke liye aaram se blink hone wala animation
+    _blinkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+    _blinkAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(_blinkController);
   }
 
   void _initVideo() {
-    _videoController = VideoPlayerController.asset('assets/Video/1111.mp4')
-      ..initialize().then((_) {
+    _videoController = VideoPlayerController.asset(
+      'assets/Video/1111.mp4',
+      // mixWithOthers: true ensure karega ki audio aane par video ruke nahi
+      videoPlayerOptions: const VideoPlayerOptions(mixWithOthers: true), 
+    )..initialize().then((_) {
         if (mounted) {
           _videoController.setLooping(true);
-          _videoController.setVolume(0.0); // Video muted rahega
+          _videoController.setVolume(0.0); // Video ko mute rakha hai
           _videoController.play();
           setState(() {});
         }
       }).catchError((error) {
-        debugPrint("Video Error: $error");
+        debugPrint("Video loading error: $error");
       });
   }
 
-  void _initAudio() async {
+  Future<void> _initAudio() async {
     _bgmPlayer = AudioPlayer();
     _sfxPlayer = AudioPlayer();
 
     try {
-      // 2308.mp3 - Continuous Background Music
+      // Audio Setup: Is code se Android/iOS ka syntax error nahi aayega
+      await AudioPlayer.global.setAudioContext(
+        AudioContextConfig(
+          forceSpeaker: false,
+          duckAudio: false, // Doosre sound ko dabne nahi dega
+          respectSilence: false,
+          stayAwake: true,
+        ).build(),
+      );
+
+      // 1. Permanent BGM Loop (2308.mp3)
       await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
       await _bgmPlayer.play(AssetSource('audio/2308.mp3'));
 
-      // 2307.mp3 - Har 15 second baad play hoga
+      // 2. Timer SFX har 15 sec (2307.mp3)
       _sfxTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
         if (mounted) {
-          // Play karega bina BGM ya Video ko roke
           await _sfxPlayer.play(AssetSource('audio/2307.mp3'));
         }
       });
     } catch (e) {
-      debugPrint("Audio Error: $e");
+      debugPrint("Audio setup error: $e");
     }
   }
 
   Future<void> _loadUserData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    User? firebaseUser = FirebaseAuth.instance.currentUser;
-    
-    if (firebaseUser != null && firebaseUser.email != null) {
-      userDisplay = firebaseUser.email!;
-    } else {
-      userDisplay = prefs.getString('user_email') ?? "Guest User";
-    }
-
     if (mounted) {
       setState(() {
-        // SharedPreferences se real value aayegi, nahi toh 0 dikhega
         coins = prefs.getInt('total_coins') ?? 0;
         diamonds = prefs.getInt('total_diamonds') ?? 0;
       });
@@ -110,7 +101,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _sfxTimer?.cancel();
+    _blinkController.dispose();
+    _sfxTimer?.cancel(); 
     _videoController.dispose();
     _bgmPlayer.dispose();
     _sfxPlayer.dispose();
@@ -124,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Video
+          // BACKGROUND VIDEO
           _videoController.value.isInitialized
               ? SizedBox.expand(
                   child: FittedBox(
@@ -138,21 +130,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               : const Center(child: CircularProgressIndicator(color: Colors.orange)),
 
+          // UI LAYER
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // TOP BAR: Coins & Diamonds
+                  // --- TOP BAR ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          _buildCleanStat('assets/Image/4444.png', diamonds.toString()),
-                          const SizedBox(width: 24),
-                          _buildCleanStat('assets/Image/3333.png', coins.toString()),
+                          _buildStat('assets/Image/4444.png', diamonds.toString()),
+                          const SizedBox(width: 20),
+                          _buildStat('assets/Image/3333.png', coins.toString()),
                         ],
                       ),
                       Row(
@@ -173,44 +165,43 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
+                  
+                  const Spacer(), // Tap To Play aur Box ko bottom mein shift karne ke liye
 
-                  // BOTTOM AREA: Tap to Play & Menu Navigation
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // TAP TO PLAY - Box hata diya aur size chota kar diya gaya hai
-                      GestureDetector(
-                        onTap: () {
-                          debugPrint("Game Started!");
-                        },
-                        child: const Text(
-                          "TAP TO PLAY",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16, // Size chota kiya
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 3.0,
-                            shadows: [
-                              Shadow(color: Colors.black87, blurRadius: 10, offset: Offset(0, 2)),
-                            ],
-                          ),
+                  // --- TAP TO PLAY TEXT (Blinking) ---
+                  GestureDetector(
+                    onTap: () {
+                      debugPrint("Game Started!");
+                      // Apne game ka navigation logic yahan daalein
+                    },
+                    child: FadeTransition(
+                      opacity: _blinkAnimation,
+                      child: const Text(
+                        "TAP TO PLAY",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16, 
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 4.0, 
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 10, offset: Offset(0, 3)),
+                          ],
                         ),
                       ),
-                      
-                      const SizedBox(height: 25), // Text aur bottom menu ke beech ka gap
+                    ),
+                  ),
+                  const SizedBox(height: 30), 
 
-                      // BOTTOM NAVIGATION DOCK
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildBottomNavButton(Icons.flag, "MISSIONS", () {}),
-                          _buildBottomNavButton(Icons.person, "ME", () {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
-                          }),
-                          _buildBottomNavButton(Icons.shopping_bag, "SHOP", () {}),
-                          _buildBottomNavButton(Icons.public, "EVENTS", () {}),
-                        ],
-                      ),
+                  // --- BOTTOM NAVIGATION DOCK ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildBottomNavButton(Icons.flag, "MISSIONS", () {}),
+                      _buildBottomNavButton(Icons.person, "ME", () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+                      }),
+                      _buildBottomNavButton(Icons.shopping_bag, "SHOP", () {}),
+                      _buildBottomNavButton(Icons.public, "EVENTS", () {}),
                     ],
                   ),
                 ],
@@ -222,12 +213,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCleanStat(String imagePath, String value) {
+  // Chhoti clean UI ke liye custom function
+  Widget _buildStat(String imagePath, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image.asset(imagePath, width: 26, height: 26),
-        const SizedBox(width: 8),
+        Image.asset(imagePath, width: 24, height: 24),
+        const SizedBox(width: 6),
         Text(
           value,
           style: const TextStyle(
@@ -235,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
             fontSize: 18,
             fontWeight: FontWeight.w900,
             shadows: [
-              Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
+              Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1)),
             ],
           ),
         ),
@@ -243,6 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Clean professional buttons bottom dock ke liye
   Widget _buildBottomNavButton(IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -250,14 +243,14 @@ class _HomeScreenState extends State<HomeScreen> {
         width: 75,
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.4),
+          color: Colors.black.withOpacity(0.5),
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white24, width: 1.0),
+          border: Border.all(color: Colors.white30, width: 1.0),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 22),
+            Icon(icon, color: Colors.white, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
