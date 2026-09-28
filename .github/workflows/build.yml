@@ -3,25 +3,22 @@ name: Build Android & iOS Release
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Manually run karne ka button
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-latest # iPhone ka app banane ke liye Mac zaroori hai
+    runs-on: macos-latest
 
     steps:
-      # 1. Repository ka code fetch karna
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Java (JDK 17) Setup karna
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. Flutter SDK Setup karna
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -29,20 +26,23 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # 4. JADOO: Ye missing iOS aur Android folders automatically banayega
       - name: Create Flutter Native Folders
         run: flutter create --project-name chai_and_chase .
 
-      # 5. Dependencies install karna
       - name: Install Dependencies
         run: flutter pub get
 
-      # 6. Android aur iPhone dono ke liye Logo set karna
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
       # ==========================================
-      # 7. ANDROID BUILD & UPLOAD (APK)
+      # YAHAN HAI NAYA FIX (AUDIO PLAYER SDK 34 FIX)
+      # ==========================================
+      - name: Fix Android SDK Version to 34
+        run: sed -i '' 's/flutter.compileSdkVersion/34/g' android/app/build.gradle
+
+      # ==========================================
+      # ANDROID BUILD & UPLOAD (APK)
       # ==========================================
       - name: Build Release APK (Android)
         run: flutter build apk --release
@@ -52,10 +52,10 @@ jobs:
         with:
           name: Chai-and-Chase-Android-APK
           path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 1 # 24 ghante baad auto-delete
+          retention-days: 1
 
       # ==========================================
-      # 8. iPHONE BUILD & UPLOAD (iOS)
+      # iPHONE BUILD & UPLOAD (iOS)
       # ==========================================
       - name: Build Release iOS
         run: flutter build ios --release --no-codesign
@@ -65,4 +65,4 @@ jobs:
         with:
           name: Chai-and-Chase-iPhone-App
           path: build/ios/iphoneos
-          retention-days: 1 # 24 ghante baad auto-delete
+          retention-days: 1
