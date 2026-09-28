@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart'; 
-import 'package:firebase_auth/package:firebase_auth.dart'; // Naya: User ka login status check karne ke liye
+import 'package:firebase_auth/firebase_auth.dart'; // Naya: User ka login status check karne ke liye
 import 'firebase_options.dart'; 
 import 'home_screen.dart';
 import 'login_screen.dart'; // Naya: Tumhari VIP Login Screen link ho gayi
