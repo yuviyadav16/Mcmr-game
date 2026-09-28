@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // <-- Yeh add kiya state save karne ke liye
 import 'firebase_options.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
@@ -55,13 +56,12 @@ class _SplashScreenState extends State<SplashScreen> {
     _startLoadingAnimation();
   }
 
-  // Crash-Proof Video Initialization
   void _initVideo() {
     _videoController = VideoPlayerController.asset('assets/Video/2222.mp4')
       ..initialize().then((_) {
         if (mounted) {
           _videoController.setLooping(true);
-          _videoController.setVolume(0.0); // Background UI video muted
+          _videoController.setVolume(0.0);
           _videoController.play();
           setState(() {});
         }
@@ -70,7 +70,6 @@ class _SplashScreenState extends State<SplashScreen> {
       });
   }
 
-  // Smooth Loading Logic
   void _startLoadingAnimation() {
     _progressTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
       if (mounted && progressPercent < 100) {
@@ -82,14 +81,34 @@ class _SplashScreenState extends State<SplashScreen> {
       }
     });
 
+    // 15 seconds baad auto-navigation logic
     _navigationTimer = Timer(const Duration(seconds: 15), () {
       if (mounted) {
-        _showEntryOptionsModal(context);
+        _checkLoginState();
       }
     });
   }
 
-  // Robust External URL Launcher
+  // YAHAN CHECK HOGA KI USER PEHLE SE LOGIN HAI YA NAHI
+  Future<void> _checkLoginState() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool isGuest = prefs.getBool('isGuest') ?? false;
+
+    if (!mounted) return;
+
+    if (user != null || isGuest) {
+      // Agar email se login hai YA guest mode on hai -> Seedha Game mein jao (No Popup)
+      Navigator.pushReplacement(
+        context, 
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } else {
+      // Naya user hai -> Modal dikhao
+      _showEntryOptionsModal(context);
+    }
+  }
+
   Future<void> _openTicbullWebsite() async {
     final Uri url = Uri.parse('https://ticbull.in');
     try {
@@ -127,6 +146,8 @@ class _SplashScreenState extends State<SplashScreen> {
                 style: TextStyle(color: Colors.white60, fontSize: 14),
               ),
               const SizedBox(height: 35),
+              
+              // 1. CONTINUE WITH EMAIL
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
@@ -143,6 +164,8 @@ class _SplashScreenState extends State<SplashScreen> {
                 },
               ),
               const SizedBox(height: 20),
+              
+              // 2. PLAY AS GUEST
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
@@ -152,9 +175,15 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
                 icon: const Icon(Icons.play_arrow_rounded, color: Colors.orangeAccent, size: 28),
                 label: const Text("PLAY AS GUEST", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                onPressed: () async {
+                  // GUEST MODE SAVE KARNA TAHO KI BAAR BAAR POPUP NA AAYE
+                  SharedPreferences prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('isGuest', true);
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                  }
                 },
               ),
             ],
@@ -179,7 +208,6 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Video Layer
           _videoController.value.isInitialized
               ? SizedBox.expand(
                   child: FittedBox(
@@ -193,7 +221,6 @@ class _SplashScreenState extends State<SplashScreen> {
                 )
               : const Center(child: CircularProgressIndicator(color: Colors.orange)),
 
-          // Dark Gradient Overlay for better contrast
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -213,7 +240,6 @@ class _SplashScreenState extends State<SplashScreen> {
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 children: [
-                  // CENTERED TITLE
                   Expanded(
                     child: Center(
                       child: Column(
@@ -229,7 +255,7 @@ class _SplashScreenState extends State<SplashScreen> {
                               'CHAI & CHASE',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 48, // Big and professional
+                                fontSize: 48, 
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 4.0,
                                 color: Colors.white,
@@ -253,8 +279,6 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                     ),
                   ),
-
-                  // BOTTOM SECTION (Loading Bar + Platform Link)
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -276,8 +300,6 @@ class _SplashScreenState extends State<SplashScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      
-                      // Upgraded Professional Loading Bar
                       Container(
                         height: 6,
                         decoration: BoxDecoration(
@@ -296,8 +318,6 @@ class _SplashScreenState extends State<SplashScreen> {
                         ),
                       ),
                       const SizedBox(height: 35),
-
-                      // POWERED BY BUTTON
                       InkWell(
                         onTap: _openTicbullWebsite,
                         borderRadius: BorderRadius.circular(30),
