@@ -38,16 +38,36 @@ jobs:
         run: dart run flutter_launcher_icons
 
       # ==========================================
-      # 100% BULLETPROOF PYTHON FIX FOR MAC
+      # BULLETPROOF PYTHON SCRIPT TO FORCE SDK 36
       # ==========================================
-      - name: Fix Android SDK Version
+      - name: Force CompileSdk to 36
         run: |
           python3 -c "
-          import os
-          for f in ['android/app/build.gradle', 'android/app/build.gradle.kts']:
-              if os.path.exists(f):
-                  content = open(f).read()
-                  open(f, 'w').write(content.replace('flutter.compileSdkVersion', '36'))
+          import glob
+          for f in glob.glob('android/app/build.gradle*'):
+              print(f'Checking {f}')
+              with open(f, 'r') as file:
+                  content = file.read()
+              
+              # Sabhi possible patterns ko 36 se replace kar do
+              content = content.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
+              content = content.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
+              content = content.replace('compileSdk = flutter.compileSdkVersion.toInt()', 'compileSdk = 36')
+              
+              # Agar phir bhi na ho toh direct line rewrite kar do
+              if 'compileSdk' in content:
+                  lines = content.split('\n')
+                  new_lines = []
+                  for line in lines:
+                      if 'compileSdk' in line and '=' in line:
+                          new_lines.append('    compileSdk = 36')
+                      else:
+                          new_lines.append(line)
+                  content = '\n'.join(new_lines)
+
+              with open(f, 'w') as file:
+                  file.write(content)
+              print(f'Successfully updated {f} to SDK 36!')
           "
 
       # ==========================================
