@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'home_screen.dart'; // Tumhara naya video wala Home Screen yahan connect ho gaya
+import 'package:firebase_core/firebase_core.dart'; // Naya: Firebase Core Package
+import 'firebase_options.dart'; // Naya: Tumhari API keys wali file
+import 'home_screen.dart';
 
-void main() {
+void main() async { // Naya: 'async' lagana zaroori hai kyunki hum backend se connect kar rahe hain
   // Ye line app ko initialize hone se pehle crash hone se rokti hai
   WidgetsFlutterBinding.ensureInitialized(); 
+  
+  // Naya: Yahan tumhara Firebase Database game start hote hi initialize ho jayega
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const ChaiAndChaseApp());
 }
 
@@ -17,7 +25,7 @@ class ChaiAndChaseApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Chai & Chase',
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: Colors.black, 
+        scaffoldBackgroundColor: Colors.black, // Ekdum professional dark look
       ),
       home: const SplashScreen(), // Game start hote hi Loading screen aayegi
     );
@@ -50,7 +58,7 @@ class _SplashScreenState extends State<SplashScreen> {
         // Direct nayi Home Screen par bhej do (Bina login ke)
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => HomeScreen()), 
+          MaterialPageRoute(builder: (context) => const HomeScreen()), 
         );
       }
     });
@@ -66,6 +74,8 @@ class _SplashScreenState extends State<SplashScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Yahan tum apna Logo.png bhi laga sakte ho
+                // Image.asset('assets/Image/Logo.png', width: 150),
                 const SizedBox(height: 20),
                 const Text(
                   'CHAI & CHASE',
@@ -77,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                const CircularProgressIndicator(color: Colors.white), 
+                const CircularProgressIndicator(color: Colors.white), // Loading Spinner
                 const SizedBox(height: 10),
                 const Text('Loading assets...', style: TextStyle(color: Colors.grey)),
               ],
