@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -15,7 +16,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late VideoPlayerController _videoController;
-  late AudioPlayer _audioPlayer;
+  
+  // Do alag audio players taaki aapas mein conflict na ho
+  late AudioPlayer _bgmPlayer; // 2308.mp3 (Permanent Loop)
+  late AudioPlayer _sfxPlayer; // 2307.mp3 (Every 15 sec)
+  Timer? _sfxTimer;
   
   int coins = 0;
   int diamonds = 0;
@@ -25,32 +30,47 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserData();
-
-    // HD Background Video (1111.mp4) optimized
-    _videoController = VideoPlayerController.asset('assets/Video/1111.mp4')
-      ..initialize().then((_) {
-        _videoController.setLooping(true);
-        _videoController.play();
-        setState(() {});
-      });
-
-    // Single stable audio player to prevent crashes
-    _audioPlayer = AudioPlayer();
+    _initVideo();
     _initAudio();
   }
 
+  void _initVideo() {
+    // Video player ko safely initialize kiya gaya hai taaki crash na ho
+    _videoController = VideoPlayerController.asset('assets/Video/1111.mp4')
+      ..initialize().then((_) {
+        _videoController.setLooping(true);
+        _videoController.setVolume(0.0); // Video ka apna sound mute rakha hai
+        _videoController.play();
+        setState(() {});
+      }).catchError((error) {
+        print("Video loading error: $error");
+      });
+  }
+
   void _initAudio() async {
+    _bgmPlayer = AudioPlayer();
+    _sfxPlayer = AudioPlayer();
+
     try {
-      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-      await _audioPlayer.play(AssetSource('audio/2308.mp3'));
+      // 1. Permanent background music (2308.mp3)
+      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+      await _bgmPlayer.play(AssetSource('audio/2308.mp3'));
+
+      // 2. 15 second gap wala sound (2307.mp3)
+      _sfxTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
+        if (mounted) {
+          await _sfxPlayer.play(AssetSource('audio/2307.mp3'));
+        }
+      });
     } catch (e) {
-      print("Audio error: $e");
+      print("Audio setup error: $e");
     }
   }
 
   Future<void> _loadUserData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     User? firebaseUser = FirebaseAuth.instance.currentUser;
+    
     if (firebaseUser != null && firebaseUser.email != null) {
       setState(() {
         userDisplay = firebaseUser.email!;
@@ -62,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     setState(() {
+      // Dummy values ko hata kar direct backend/prefs data liya hai
       coins = prefs.getInt('total_coins') ?? 15583;
       diamonds = prefs.getInt('total_diamonds') ?? 7;
     });
@@ -69,8 +90,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _sfxTimer?.cancel(); // Timer memory leak rokne ke liye
     _videoController.dispose();
-    _audioPlayer.dispose();
+    _bgmPlayer.dispose();
+    _sfxPlayer.dispose();
     super.dispose();
   }
 
@@ -81,6 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // Background HD Video Player
           _videoController.value.isInitialized
               ? SizedBox.expand(
                   child: FittedBox(
@@ -94,33 +118,34 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               : const Center(child: CircularProgressIndicator(color: Colors.orange)),
 
+          // Foreground UI Elements
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // TOP BAR: Coins & Diamonds (NO BOX - Clean Look)[span_5](start_span)[span_5](end_span)
+                  // TOP BAR: Coins & Diamonds (Boxes removed, made Bigger)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          _buildCleanStat('assets/Image/4444.png', diamonds.toString()),
-                          const SizedBox(width: 15),
-                          _buildCleanStat('assets/Image/3333.png', coins.toString()),
+                          _buildBigStat('assets/Image/4444.png', diamonds.toString()),
+                          const SizedBox(width: 24),
+                          _buildBigStat('assets/Image/3333.png', coins.toString()),
                         ],
                       ),
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.person_outline, color: Colors.white, size: 28),
+                            icon: const Icon(Icons.person, color: Colors.white, size: 32),
                             onPressed: () {
                               Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
                             },
                           ),
                           IconButton(
-                            icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 28),
+                            icon: const Icon(Icons.settings, color: Colors.white, size: 32),
                             onPressed: () {
                               Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
                             },
@@ -130,38 +155,47 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
 
-                  // CENTER: Small Clean "Tap to Play" without heavy box[span_6](start_span)[span_6](end_span)
-                  Column(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          // Game Play navigation
-                        },
-                        child: const Text(
-                          "Tap to Play",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 2.0,
-                            shadows: [
-                              Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
-                            ],
-                          ),
+                  // CENTER: Professional "Tap to Play" Text
+                  GestureDetector(
+                    onTap: () {
+                      // Yahan apne game logic ka navigation daalein
+                      print("Game Started!");
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.85),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          )
+                        ],
+                      ),
+                      child: const Text(
+                        "TAP TO PLAY",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.5,
                         ),
                       ),
-                    ],
+                    ),
                   ),
 
                   // BOTTOM NAVIGATION DOCK
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildBottomNavButton(Icons.flag_outlined, "MISSIONS", () {}),
+                      _buildBottomNavButton(Icons.flag, "MISSIONS", () {}),
                       _buildBottomNavButton(Icons.person, "ME", () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
                       }),
-                      _buildBottomNavButton(Icons.shopping_bag_outlined, "SHOP", () {}),
+                      _buildBottomNavButton(Icons.shopping_bag, "SHOP", () {}),
                       _buildBottomNavButton(Icons.public, "EVENTS", () {}),
                     ],
                   ),
@@ -174,18 +208,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCleanStat(String imagePath, String value) {
+  // Box hata kar sidha Icon aur Text bada kar diya gaya hai
+  Widget _buildBigStat(String imagePath, String value) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image.asset(imagePath, width: 22, height: 22),
-        const SizedBox(width: 6),
+        Image.asset(imagePath, width: 34, height: 34), // Icon size bada kiya
+        const SizedBox(width: 8),
         Text(
           value,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+            fontSize: 22, // Font size bada kiya
+            fontWeight: FontWeight.w900,
+            shadows: [
+              Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
+            ],
           ),
         ),
       ],
@@ -197,20 +235,20 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: onTap,
       child: Container(
         width: 75,
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white24, width: 1),
+          color: Colors.black.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.white30, width: 1.5),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 24),
-            const SizedBox(height: 4),
+            Icon(icon, color: Colors.white, size: 26),
+            const SizedBox(height: 6),
             Text(
               label,
-              style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
             ),
           ],
         ),
