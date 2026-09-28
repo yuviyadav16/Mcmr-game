@@ -1,13 +1,13 @@
-name: Build Android APK
+name: Build Android & iOS Release
 
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Taaki tum manually bhi 'Run workflow' daba sako
+  workflow_dispatch: # Manually run karne ka button
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest # iPhone ka app banane ke liye Mac zaroori hai
 
     steps:
       # 1. Repository ka code fetch karna
@@ -29,22 +29,40 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # 4. Dependencies install karna
+      # 4. JADOO: Ye missing iOS aur Android folders automatically banayega
+      - name: Create Flutter Native Folders
+        run: flutter create --project-name chai_and_chase .
+
+      # 5. Dependencies install karna
       - name: Install Dependencies
         run: flutter pub get
 
-      # 5. App ka Logo (`Logo.png`) generate karna
+      # 6. Android aur iPhone dono ke liye Logo set karna
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
-      # 6. Release APK Build karna
-      - name: Build Release APK
+      # ==========================================
+      # 7. ANDROID BUILD & UPLOAD (APK)
+      # ==========================================
+      - name: Build Release APK (Android)
         run: flutter build apk --release
 
-      # 7. APK Upload karna (24 Ghante baad automatic delete logic)
-      - name: Upload APK Artifact
+      - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: Chai-and-Chase-Release-APK
+          name: Chai-and-Chase-Android-APK
           path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 1 # Exactly 24 ghante (1 din) baad automatic delete ho jayega!
+          retention-days: 1 # 24 ghante baad auto-delete
+
+      # ==========================================
+      # 8. iPHONE BUILD & UPLOAD (iOS)
+      # ==========================================
+      - name: Build Release iOS
+        run: flutter build ios --release --no-codesign
+
+      - name: Upload iPhone Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Chai-and-Chase-iPhone-App
+          path: build/ios/iphoneos
+          retention-days: 1 # 24 ghante baad auto-delete
