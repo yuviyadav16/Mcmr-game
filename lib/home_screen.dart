@@ -26,19 +26,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   
   int coins = 0; 
   int diamonds = 0;
+  
+  // Settings variables
+  bool isBgmEnabled = true;
+  bool isSfxEnabled = true;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
-    _initVideo();
-    _initAudio();
-
+    
     _blinkController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
     _blinkAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(_blinkController);
+
+    _initVideo();
+    _initAudio();
   }
 
   void _initVideo() {
@@ -50,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           _videoController.setLooping(true);
           _videoController.setVolume(0.0); 
           _videoController.play();
-          setState(() {});
+          setState(() {}); // UI refresh jab video load ho jaye
         }
       }).catchError((error) {
         debugPrint("Video loading error: $error");
@@ -64,20 +68,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     try {
       await AudioPlayer.global.setAudioContext(
         AudioContextConfig(
-          // duckAudio parameter hata diya gaya hai taaki error na aaye
           respectSilence: false,
           stayAwake: true,
         ).build(),
       );
 
+      // SFX ko lowLatency mode mein rakhein taaki BGM ko mute na kare
+      await _sfxPlayer.setPlayerMode(PlayerMode.lowLatency);
       await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
-      await _bgmPlayer.play(AssetSource('audio/2308.mp3'));
-
-      _sfxTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
-        if (mounted) {
-          await _sfxPlayer.play(AssetSource('audio/2307.mp3'));
-        }
-      });
+      
+      // Data load karo aur uske according audio chalao
+      await _loadUserData();
+      
     } catch (e) {
       debugPrint("Audio setup error: $e");
     }
@@ -89,6 +91,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       setState(() {
         coins = prefs.getInt('total_coins') ?? 0;
         diamonds = prefs.getInt('total_diamonds') ?? 0;
+        
+        // Settings page se data le rahe hain (Make sure settings page yahi key use kare)
+        isBgmEnabled = prefs.getBool('bgm_enabled') ?? true;
+        isSfxEnabled = prefs.getBool('sfx_enabled') ?? true;
+      });
+
+      // BGM play karo agar setting ON hai
+      if (isBgmEnabled) {
+        if (_bgmPlayer.state != PlayerState.playing) {
+          await _bgmPlayer.play(AssetSource('audio/2308.mp3'));
+        }
+      } else {
+        await _bgmPlayer.stop();
+      }
+
+      // SFX Timer Reset
+      _sfxTimer?.cancel();
+      _sfxTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
+        if (mounted && isSfxEnabled) {
+          await _sfxPlayer.play(AssetSource('audio/2307.mp3'));
+        }
       });
     }
   }
@@ -110,18 +133,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _videoController.value.isInitialized
-              ? SizedBox.expand(
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: _videoController.value.size.width,
-                      height: _videoController.value.size.height,
-                      child: VideoPlayer(_videoController),
+          // Yahan Spinner Hata Kar Cinematic Fade-in lagaya hai
+          AnimatedOpacity(
+            opacity: _videoController.value.isInitialized ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 1000), // Smooth 1 sec fade in
+            child: _videoController.value.isInitialized
+                ? SizedBox.expand(
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: _videoController.value.size.width,
+                        height: _videoController.value.size.height,
+                        child: VideoPlayer(_videoController),
+                      ),
                     ),
-                  ),
-                )
-              : const Center(child: CircularProgressIndicator(color: Colors.orange)),
+                  )
+                : Container(color: Colors.black), // Loading ke time smooth black screen (No Fake Spinner)
+          ),
 
           SafeArea(
             child: Padding(
@@ -134,22 +162,24 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       Row(
                         children: [
                           _buildStat('assets/Image/4444.png', diamonds.toString()),
-                          const SizedBox(width: 20),
+                          const SizedBox(width: 25), // Beech ki spacing badhayi
                           _buildStat('assets/Image/3333.png', coins.toString()),
                         ],
                       ),
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.person, color: Colors.white, size: 28),
+                            icon: const Icon(Icons.person, color: Colors.white, size: 30),
                             onPressed: () {
                               Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
                             },
                           ),
                           IconButton(
-                            icon: const Icon(Icons.settings, color: Colors.white, size: 28),
-                            onPressed: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+                            icon: const Icon(Icons.settings, color: Colors.white, size: 30),
+                            onPressed: () async {
+                              // Settings open hoga, back aane par _loadUserData() settings check karega
+                              await Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+                              _loadUserData(); 
                             },
                           ),
                         ],
@@ -201,20 +231,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
+  // Ab Coins aur Diamonds ka Icon aur Text bada aur clear dikhega
   Widget _buildStat(String imagePath, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image.asset(imagePath, width: 24, height: 24),
-        const SizedBox(width: 6),
+        Image.asset(imagePath, width: 34, height: 34), // Icon Size Bada Kiya
+        const SizedBox(width: 8),
         Text(
           value,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 18,
+            fontSize: 24, // Text Size Bada Kiya
             fontWeight: FontWeight.w900,
             shadows: [
-              Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1)),
+              Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
             ],
           ),
         ),
