@@ -17,8 +17,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late VideoPlayerController _videoController;
   
-  late AudioPlayer _bgmPlayer; 
-  late AudioPlayer _sfxPlayer; 
+  // 3 alag-alag audio players setup kiye gaye hain
+  late AudioPlayer _menuBgmPlayer; // yuvi.mp3 ke liye
+  late AudioPlayer _gameBgmPlayer; // 2308.mp3 ke liye
+  late AudioPlayer _gameSfxPlayer; // 2307.mp3 ke liye
   Timer? _sfxTimer;
   
   late AnimationController _blinkController;
@@ -29,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   
   bool isBgmEnabled = true;
   bool isSfxEnabled = true;
+  bool isGameStarted = false; // Check karne ke liye ki game chalu hai ya nahi
 
   @override
   void initState() {
@@ -61,8 +64,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _initAudio() async {
-    _bgmPlayer = AudioPlayer();
-    _sfxPlayer = AudioPlayer();
+    _menuBgmPlayer = AudioPlayer();
+    _gameBgmPlayer = AudioPlayer();
+    _gameSfxPlayer = AudioPlayer();
 
     try {
       await AudioPlayer.global.setAudioContext(
@@ -72,17 +76,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             stayAwake: true,
             contentType: AndroidContentType.music,
             usageType: AndroidUsageType.game,
-            audioFocus: AndroidAudioFocus.none, // BGM ko rukne nahi dega
+            audioFocus: AndroidAudioFocus.none,
           ),
           iOS: AudioContextIOS(
             category: AVAudioSessionCategory.ambient,
-            options: const {AVAudioSessionOptions.mixWithOthers}, // iPhone fix
+            options: const {AVAudioSessionOptions.mixWithOthers}, 
           ),
         ),
       );
 
-      // Yahan se 'lowLatency' wali line hata di gayi hai taaki MP3 crash na kare
-      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+      await _menuBgmPlayer.setReleaseMode(ReleaseMode.loop);
+      await _gameBgmPlayer.setReleaseMode(ReleaseMode.loop);
       
       await _loadUserData();
       
@@ -102,22 +106,53 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         isSfxEnabled = prefs.getBool('sfx_enabled') ?? true;
       });
 
-      if (isBgmEnabled) {
-        if (_bgmPlayer.state != PlayerState.playing) {
-          await _bgmPlayer.play(AssetSource('audio/2308.mp3'));
+      // Agar game start NAI hua hai, to Menu song (yuvi.mp3) bajao
+      if (!isGameStarted) {
+        if (isBgmEnabled) {
+          if (_menuBgmPlayer.state != PlayerState.playing) {
+            await _menuBgmPlayer.play(AssetSource('audio/yuvi.mp3'));
+          }
+        } else {
+          await _menuBgmPlayer.stop();
         }
       } else {
-        await _bgmPlayer.stop();
+        // Agar game START ho gaya hai, to 2308.mp3 aur 2307.mp3 bajao
+        if (isBgmEnabled) {
+          if (_gameBgmPlayer.state != PlayerState.playing) {
+            await _gameBgmPlayer.play(AssetSource('audio/2308.mp3'));
+          }
+        } else {
+          await _gameBgmPlayer.stop();
+        }
       }
+    }
+  }
 
-      _sfxTimer?.cancel();
+  // JAB USER TAP TO PLAY KAREGA TOH KYA HOGA:
+  Future<void> _startGame() async {
+    setState(() {
+      isGameStarted = true;
+    });
+
+    // 1. Menu music band karo
+    await _menuBgmPlayer.stop();
+
+    // 2. Game ka BGM chalu karo (agar settings ON hai)
+    if (isBgmEnabled) {
+      await _gameBgmPlayer.play(AssetSource('audio/2308.mp3'));
+    }
+
+    // 3. 15 sec wala SFX chalu karo (agar settings ON hai)
+    if (isSfxEnabled) {
       _sfxTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
         if (mounted && isSfxEnabled) {
-          // Normal mode mein play hoga, bina kisi memory crash ke
-          await _sfxPlayer.play(AssetSource('audio/2307.mp3'));
+          await _gameSfxPlayer.play(AssetSource('audio/2307.mp3'));
         }
       });
     }
+
+    debugPrint("Game Started! Music Switched.");
+    // Yahan apna navigation ya game logic add kar lijiye
   }
 
   @override
@@ -125,8 +160,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _blinkController.dispose();
     _sfxTimer?.cancel(); 
     _videoController.dispose();
-    _bgmPlayer.dispose();
-    _sfxPlayer.dispose();
+    _menuBgmPlayer.dispose();
+    _gameBgmPlayer.dispose();
+    _gameSfxPlayer.dispose();
     super.dispose();
   }
 
@@ -191,26 +227,28 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   
                   const Spacer(), 
 
-                  GestureDetector(
-                    onTap: () {
-                      debugPrint("Game Started!");
-                    },
-                    child: FadeTransition(
-                      opacity: _blinkAnimation,
-                      child: const Text(
-                        "TAP TO PLAY",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16, 
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 4.0, 
-                          shadows: [
-                            Shadow(color: Colors.black, blurRadius: 10, offset: Offset(0, 3)),
-                          ],
+                  // TAP TO PLAY WALA BUTTON
+                  if (!isGameStarted) // (Agar chahein toh game start hone ke baad button hide kar sakte hain)
+                    GestureDetector(
+                      onTap: () {
+                        _startGame(); // Naya audio logic fire hoga
+                      },
+                      child: FadeTransition(
+                        opacity: _blinkAnimation,
+                        child: const Text(
+                          "TAP TO PLAY",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16, 
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 4.0, 
+                            shadows: [
+                              Shadow(color: Colors.black, blurRadius: 10, offset: Offset(0, 3)),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 30), 
 
                   Row(
