@@ -65,7 +65,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _sfxPlayer = AudioPlayer();
 
     try {
-      // FIX: Yahan se 'const' hata diya gaya hai taaki GitHub build error na aaye
       await AudioPlayer.global.setAudioContext(
         AudioContext(
           android: AudioContextAndroid(
@@ -73,16 +72,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             stayAwake: true,
             contentType: AndroidContentType.music,
             usageType: AndroidUsageType.game,
-            audioFocus: AndroidAudioFocus.none, 
+            audioFocus: AndroidAudioFocus.none, // BGM ko rukne nahi dega
           ),
           iOS: AudioContextIOS(
             category: AVAudioSessionCategory.ambient,
-            options: const {AVAudioSessionOptions.mixWithOthers},
+            options: const {AVAudioSessionOptions.mixWithOthers}, // iPhone fix
           ),
         ),
       );
 
-      await _sfxPlayer.setPlayerMode(PlayerMode.lowLatency);
+      // Yahan se 'lowLatency' wali line hata di gayi hai taaki MP3 crash na kare
       await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
       
       await _loadUserData();
@@ -114,6 +113,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       _sfxTimer?.cancel();
       _sfxTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
         if (mounted && isSfxEnabled) {
+          // Normal mode mein play hoga, bina kisi memory crash ke
           await _sfxPlayer.play(AssetSource('audio/2307.mp3'));
         }
       });
