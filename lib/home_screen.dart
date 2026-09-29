@@ -44,7 +44,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void _initVideo() {
     _videoController = VideoPlayerController.asset(
       'assets/Video/1111.mp4',
-      // FIX 1: 'const' hata diya gaya hai
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true), 
     )..initialize().then((_) {
         if (mounted) {
@@ -65,8 +64,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     try {
       await AudioPlayer.global.setAudioContext(
         AudioContextConfig(
-          // FIX 2: 'forceSpeaker' wali line hata di gayi hai
-          duckAudio: false, 
+          // duckAudio parameter hata diya gaya hai taaki error na aaye
           respectSilence: false,
           stayAwake: true,
         ).build(),
