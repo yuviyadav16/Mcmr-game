@@ -27,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   int coins = 0; 
   int diamonds = 0;
   
-  // Settings variables
   bool isBgmEnabled = true;
   bool isSfxEnabled = true;
 
@@ -54,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           _videoController.setLooping(true);
           _videoController.setVolume(0.0); 
           _videoController.play();
-          setState(() {}); // UI refresh jab video load ho jaye
+          setState(() {}); 
         }
       }).catchError((error) {
         debugPrint("Video loading error: $error");
@@ -66,18 +65,26 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _sfxPlayer = AudioPlayer();
 
     try {
+      // SABSE BADA FIX: Dono audio ko ek sath play karne ke liye AudioContext set kiya
       await AudioPlayer.global.setAudioContext(
-        AudioContextConfig(
-          respectSilence: false,
-          stayAwake: true,
-        ).build(),
+        const AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: false,
+            stayAwake: true,
+            contentType: AndroidContentType.music,
+            usageType: AndroidUsageType.game,
+            audioFocus: AndroidAudioFocus.none, // <-- Ye line dusre sound ko rukne nahi degi!
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.ambient,
+            options: {AVAudioSessionOptions.mixWithOthers}, // <-- iPhone ke liye fix
+          ),
+        ),
       );
 
-      // SFX ko lowLatency mode mein rakhein taaki BGM ko mute na kare
       await _sfxPlayer.setPlayerMode(PlayerMode.lowLatency);
       await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
       
-      // Data load karo aur uske according audio chalao
       await _loadUserData();
       
     } catch (e) {
@@ -92,7 +99,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         coins = prefs.getInt('total_coins') ?? 0;
         diamonds = prefs.getInt('total_diamonds') ?? 0;
         
-        // Settings page se data le rahe hain (Make sure settings page yahi key use kare)
         isBgmEnabled = prefs.getBool('bgm_enabled') ?? true;
         isSfxEnabled = prefs.getBool('sfx_enabled') ?? true;
       });
@@ -133,10 +139,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Yahan Spinner Hata Kar Cinematic Fade-in lagaya hai
+          // Black screen fade-in (Bina orange loading spinner ke)
           AnimatedOpacity(
             opacity: _videoController.value.isInitialized ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 1000), // Smooth 1 sec fade in
+            duration: const Duration(milliseconds: 1000), 
             child: _videoController.value.isInitialized
                 ? SizedBox.expand(
                     child: FittedBox(
@@ -148,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       ),
                     ),
                   )
-                : Container(color: Colors.black), // Loading ke time smooth black screen (No Fake Spinner)
+                : Container(color: Colors.black), 
           ),
 
           SafeArea(
@@ -162,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       Row(
                         children: [
                           _buildStat('assets/Image/4444.png', diamonds.toString()),
-                          const SizedBox(width: 25), // Beech ki spacing badhayi
+                          const SizedBox(width: 25), 
                           _buildStat('assets/Image/3333.png', coins.toString()),
                         ],
                       ),
@@ -177,9 +183,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           IconButton(
                             icon: const Icon(Icons.settings, color: Colors.white, size: 30),
                             onPressed: () async {
-                              // Settings open hoga, back aane par _loadUserData() settings check karega
                               await Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
-                              _loadUserData(); 
+                              _loadUserData(); // Settings se wapas aane par music update hoga
                             },
                           ),
                         ],
@@ -231,18 +236,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // Ab Coins aur Diamonds ka Icon aur Text bada aur clear dikhega
   Widget _buildStat(String imagePath, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image.asset(imagePath, width: 34, height: 34), // Icon Size Bada Kiya
+        Image.asset(imagePath, width: 34, height: 34), 
         const SizedBox(width: 8),
         Text(
           value,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 24, // Text Size Bada Kiya
+            fontSize: 24, 
             fontWeight: FontWeight.w900,
             shadows: [
               Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
