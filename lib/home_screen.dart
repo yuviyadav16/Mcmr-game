@@ -17,8 +17,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late VideoPlayerController _videoController;
   
-  late AudioPlayer _bgmPlayer; // 2308.mp3 (Background Music)
-  late AudioPlayer _sfxPlayer; // 2307.mp3 (15 sec Sound Effect)
+  late AudioPlayer _bgmPlayer; 
+  late AudioPlayer _sfxPlayer; 
   Timer? _sfxTimer;
   
   late AnimationController _blinkController;
@@ -34,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _initVideo();
     _initAudio();
 
-    // "TAP TO PLAY" ke liye aaram se blink hone wala animation
     _blinkController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -45,12 +44,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void _initVideo() {
     _videoController = VideoPlayerController.asset(
       'assets/Video/1111.mp4',
-      // mixWithOthers: true ensure karega ki audio aane par video ruke nahi
-      videoPlayerOptions: const VideoPlayerOptions(mixWithOthers: true), 
+      // FIX 1: 'const' hata diya gaya hai
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true), 
     )..initialize().then((_) {
         if (mounted) {
           _videoController.setLooping(true);
-          _videoController.setVolume(0.0); // Video ko mute rakha hai
+          _videoController.setVolume(0.0); 
           _videoController.play();
           setState(() {});
         }
@@ -64,21 +63,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _sfxPlayer = AudioPlayer();
 
     try {
-      // Audio Setup: Is code se Android/iOS ka syntax error nahi aayega
       await AudioPlayer.global.setAudioContext(
         AudioContextConfig(
-          forceSpeaker: false,
-          duckAudio: false, // Doosre sound ko dabne nahi dega
+          // FIX 2: 'forceSpeaker' wali line hata di gayi hai
+          duckAudio: false, 
           respectSilence: false,
           stayAwake: true,
         ).build(),
       );
 
-      // 1. Permanent BGM Loop (2308.mp3)
       await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
       await _bgmPlayer.play(AssetSource('audio/2308.mp3'));
 
-      // 2. Timer SFX har 15 sec (2307.mp3)
       _sfxTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
         if (mounted) {
           await _sfxPlayer.play(AssetSource('audio/2307.mp3'));
@@ -116,7 +112,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // BACKGROUND VIDEO
           _videoController.value.isInitialized
               ? SizedBox.expand(
                   child: FittedBox(
@@ -130,13 +125,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 )
               : const Center(child: CircularProgressIndicator(color: Colors.orange)),
 
-          // UI LAYER
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
               child: Column(
                 children: [
-                  // --- TOP BAR ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -166,13 +159,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ],
                   ),
                   
-                  const Spacer(), // Tap To Play aur Box ko bottom mein shift karne ke liye
+                  const Spacer(), 
 
-                  // --- TAP TO PLAY TEXT (Blinking) ---
                   GestureDetector(
                     onTap: () {
                       debugPrint("Game Started!");
-                      // Apne game ka navigation logic yahan daalein
                     },
                     child: FadeTransition(
                       opacity: _blinkAnimation,
@@ -192,7 +183,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   ),
                   const SizedBox(height: 30), 
 
-                  // --- BOTTOM NAVIGATION DOCK ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -213,7 +203,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // Chhoti clean UI ke liye custom function
   Widget _buildStat(String imagePath, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -235,7 +224,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // Clean professional buttons bottom dock ke liye
   Widget _buildBottomNavButton(IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
