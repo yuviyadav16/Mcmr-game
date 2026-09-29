@@ -17,11 +17,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late VideoPlayerController _videoController;
   
-  // 3 alag-alag audio players setup kiye gaye hain
-  late AudioPlayer _menuBgmPlayer; // yuvi.mp3 ke liye
-  late AudioPlayer _gameBgmPlayer; // 2308.mp3 ke liye
-  late AudioPlayer _gameSfxPlayer; // 2307.mp3 ke liye
-  Timer? _sfxTimer;
+  // Ab sirf ek hi permanent AudioPlayer hai yuvi.mp3 ke liye
+  late AudioPlayer _bgmPlayer; 
   
   late AnimationController _blinkController;
   late Animation<double> _blinkAnimation;
@@ -30,8 +27,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   int diamonds = 0;
   
   bool isBgmEnabled = true;
-  bool isSfxEnabled = true;
-  bool isGameStarted = false; // Check karne ke liye ki game chalu hai ya nahi
 
   @override
   void initState() {
@@ -64,13 +59,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _initAudio() async {
-    _menuBgmPlayer = AudioPlayer();
-    _gameBgmPlayer = AudioPlayer();
-    _gameSfxPlayer = AudioPlayer();
+    _bgmPlayer = AudioPlayer();
 
     try {
+      // AudioContext ensure karega ki video aur audio ek sath chale bina ruke
       await AudioPlayer.global.setAudioContext(
-        AudioContext(
+        const AudioContext(
           android: AudioContextAndroid(
             isSpeakerphoneOn: false,
             stayAwake: true,
@@ -80,13 +74,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
           iOS: AudioContextIOS(
             category: AVAudioSessionCategory.ambient,
-            options: const {AVAudioSessionOptions.mixWithOthers}, 
+            options: {AVAudioSessionOptions.mixWithOthers}, 
           ),
         ),
       );
 
-      await _menuBgmPlayer.setReleaseMode(ReleaseMode.loop);
-      await _gameBgmPlayer.setReleaseMode(ReleaseMode.loop);
+      // yuvi.mp3 ko non-stop loop par set kar diya
+      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
       
       await _loadUserData();
       
@@ -103,66 +97,24 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         diamonds = prefs.getInt('total_diamonds') ?? 0;
         
         isBgmEnabled = prefs.getBool('bgm_enabled') ?? true;
-        isSfxEnabled = prefs.getBool('sfx_enabled') ?? true;
       });
 
-      // Agar game start NAI hua hai, to Menu song (yuvi.mp3) bajao
-      if (!isGameStarted) {
-        if (isBgmEnabled) {
-          if (_menuBgmPlayer.state != PlayerState.playing) {
-            await _menuBgmPlayer.play(AssetSource('audio/yuvi.mp3'));
-          }
-        } else {
-          await _menuBgmPlayer.stop();
+      // Settings ke hisaab se yuvi.mp3 play/stop hoga
+      if (isBgmEnabled) {
+        if (_bgmPlayer.state != PlayerState.playing) {
+          await _bgmPlayer.play(AssetSource('audio/yuvi.mp3'));
         }
       } else {
-        // Agar game START ho gaya hai, to 2308.mp3 aur 2307.mp3 bajao
-        if (isBgmEnabled) {
-          if (_gameBgmPlayer.state != PlayerState.playing) {
-            await _gameBgmPlayer.play(AssetSource('audio/2308.mp3'));
-          }
-        } else {
-          await _gameBgmPlayer.stop();
-        }
+        await _bgmPlayer.stop();
       }
     }
-  }
-
-  // JAB USER TAP TO PLAY KAREGA TOH KYA HOGA:
-  Future<void> _startGame() async {
-    setState(() {
-      isGameStarted = true;
-    });
-
-    // 1. Menu music band karo
-    await _menuBgmPlayer.stop();
-
-    // 2. Game ka BGM chalu karo (agar settings ON hai)
-    if (isBgmEnabled) {
-      await _gameBgmPlayer.play(AssetSource('audio/2308.mp3'));
-    }
-
-    // 3. 15 sec wala SFX chalu karo (agar settings ON hai)
-    if (isSfxEnabled) {
-      _sfxTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
-        if (mounted && isSfxEnabled) {
-          await _gameSfxPlayer.play(AssetSource('audio/2307.mp3'));
-        }
-      });
-    }
-
-    debugPrint("Game Started! Music Switched.");
-    // Yahan apna navigation ya game logic add kar lijiye
   }
 
   @override
   void dispose() {
     _blinkController.dispose();
-    _sfxTimer?.cancel(); 
     _videoController.dispose();
-    _menuBgmPlayer.dispose();
-    _gameBgmPlayer.dispose();
-    _gameSfxPlayer.dispose();
+    _bgmPlayer.dispose();
     super.dispose();
   }
 
@@ -227,28 +179,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   
                   const Spacer(), 
 
-                  // TAP TO PLAY WALA BUTTON
-                  if (!isGameStarted) // (Agar chahein toh game start hone ke baad button hide kar sakte hain)
-                    GestureDetector(
-                      onTap: () {
-                        _startGame(); // Naya audio logic fire hoga
-                      },
-                      child: FadeTransition(
-                        opacity: _blinkAnimation,
-                        child: const Text(
-                          "TAP TO PLAY",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16, 
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 4.0, 
-                            shadows: [
-                              Shadow(color: Colors.black, blurRadius: 10, offset: Offset(0, 3)),
-                            ],
-                          ),
+                  GestureDetector(
+                    onTap: () {
+                      debugPrint("Game Started! yuvi.mp3 will keep playing.");
+                      // Navigation to game gameplay logic here
+                    },
+                    child: FadeTransition(
+                      opacity: _blinkAnimation,
+                      child: const Text(
+                        "TAP TO PLAY",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16, 
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 4.0, 
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 10, offset: Offset(0, 3)),
+                          ],
                         ),
                       ),
                     ),
+                  ),
                   const SizedBox(height: 30), 
 
                   Row(
