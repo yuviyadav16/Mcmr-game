@@ -17,7 +17,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late VideoPlayerController _videoController;
   
-  // Ab sirf ek hi permanent AudioPlayer hai yuvi.mp3 ke liye
   late AudioPlayer _bgmPlayer; 
   
   late AnimationController _blinkController;
@@ -62,9 +61,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _bgmPlayer = AudioPlayer();
 
     try {
-      // AudioContext ensure karega ki video aur audio ek sath chale bina ruke
+      // FIX: Yahan AudioContext aur uske andar se saare 'const' hata diye gaye hain
       await AudioPlayer.global.setAudioContext(
-        const AudioContext(
+        AudioContext(
           android: AudioContextAndroid(
             isSpeakerphoneOn: false,
             stayAwake: true,
@@ -79,7 +78,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
       );
 
-      // yuvi.mp3 ko non-stop loop par set kar diya
       await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
       
       await _loadUserData();
@@ -99,7 +97,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         isBgmEnabled = prefs.getBool('bgm_enabled') ?? true;
       });
 
-      // Settings ke hisaab se yuvi.mp3 play/stop hoga
       if (isBgmEnabled) {
         if (_bgmPlayer.state != PlayerState.playing) {
           await _bgmPlayer.play(AssetSource('audio/yuvi.mp3'));
@@ -182,7 +179,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   GestureDetector(
                     onTap: () {
                       debugPrint("Game Started! yuvi.mp3 will keep playing.");
-                      // Navigation to game gameplay logic here
                     },
                     child: FadeTransition(
                       opacity: _blinkAnimation,
