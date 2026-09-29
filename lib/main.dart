@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:video_player/video_player.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // <-- Yeh add kiya state save karne ke liye
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
@@ -33,9 +34,6 @@ class ChaiAndChaseApp extends StatelessWidget {
   }
 }
 
-// ==========================================
-// SPLASH SCREEN (AAA Studio Design)
-// ==========================================
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -45,6 +43,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   late VideoPlayerController _videoController;
+  late AudioPlayer _splashAudio; // Naya audio player yuvi.mp3 ke liye
   int progressPercent = 0;
   Timer? _progressTimer;
   Timer? _navigationTimer;
@@ -53,6 +52,7 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     _initVideo();
+    _initAudio();
     _startLoadingAnimation();
   }
 
@@ -70,6 +70,13 @@ class _SplashScreenState extends State<SplashScreen> {
       });
   }
 
+  // Yahan yuvi.mp3 chalega
+  Future<void> _initAudio() async {
+    _splashAudio = AudioPlayer();
+    await _splashAudio.setReleaseMode(ReleaseMode.loop);
+    await _splashAudio.play(AssetSource('audio/yuvi.mp3'));
+  }
+
   void _startLoadingAnimation() {
     _progressTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
       if (mounted && progressPercent < 100) {
@@ -81,7 +88,6 @@ class _SplashScreenState extends State<SplashScreen> {
       }
     });
 
-    // 15 seconds baad auto-navigation logic
     _navigationTimer = Timer(const Duration(seconds: 15), () {
       if (mounted) {
         _checkLoginState();
@@ -89,7 +95,6 @@ class _SplashScreenState extends State<SplashScreen> {
     });
   }
 
-  // YAHAN CHECK HOGA KI USER PEHLE SE LOGIN HAI YA NAHI
   Future<void> _checkLoginState() async {
     User? user = FirebaseAuth.instance.currentUser;
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -98,13 +103,11 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     if (user != null || isGuest) {
-      // Agar email se login hai YA guest mode on hai -> Seedha Game mein jao (No Popup)
       Navigator.pushReplacement(
         context, 
         MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
     } else {
-      // Naya user hai -> Modal dikhao
       _showEntryOptionsModal(context);
     }
   }
@@ -147,14 +150,12 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               const SizedBox(height: 35),
               
-              // 1. CONTINUE WITH EMAIL
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
                   minimumSize: const Size(double.infinity, 55),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  elevation: 5,
                 ),
                 icon: const Icon(Icons.email_rounded, size: 22),
                 label: const Text("CONTINUE WITH EMAIL", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
@@ -165,7 +166,6 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               const SizedBox(height: 20),
               
-              // 2. PLAY AS GUEST
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
@@ -176,7 +176,6 @@ class _SplashScreenState extends State<SplashScreen> {
                 icon: const Icon(Icons.play_arrow_rounded, color: Colors.orangeAccent, size: 28),
                 label: const Text("PLAY AS GUEST", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
                 onPressed: () async {
-                  // GUEST MODE SAVE KARNA TAHO KI BAAR BAAR POPUP NA AAYE
                   SharedPreferences prefs = await SharedPreferences.getInstance();
                   await prefs.setBool('isGuest', true);
 
@@ -198,6 +197,7 @@ class _SplashScreenState extends State<SplashScreen> {
     _progressTimer?.cancel();
     _navigationTimer?.cancel();
     _videoController.dispose();
+    _splashAudio.dispose(); // Audio stop ho jayega jab screen change hogi
     super.dispose();
   }
 
@@ -239,38 +239,39 @@ class _SplashScreenState extends State<SplashScreen> {
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Center(
+                  // TITLE SHIFTED TO TOP LEFT WITH MODERN LOOK
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 20),
+                      padding: const EdgeInsets.only(left: 16),
+                      decoration: const BoxDecoration(
+                        border: Border(left: BorderSide(color: Colors.orangeAccent, width: 4)),
+                      ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Colors.yellowAccent, Colors.deepOrangeAccent],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ).createShader(bounds),
-                            child: const Text(
-                              'CHAI & CHASE',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 48, 
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 4.0,
-                                color: Colors.white,
-                                shadows: [
-                                  Shadow(color: Colors.black87, blurRadius: 15, offset: Offset(0, 5)),
-                                ],
-                              ),
+                          const Text(
+                            'CHAI & CHASE',
+                            style: TextStyle(
+                              fontSize: 32, 
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2.0,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(color: Colors.black87, blurRadius: 10, offset: Offset(2, 2)),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          const Text(
+                          const SizedBox(height: 4),
+                          Text(
                             "ENDLESS RUNNER",
                             style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
+                              color: Colors.orangeAccent.shade200,
+                              fontSize: 12,
                               letterSpacing: 6.0,
                               fontWeight: FontWeight.bold,
                             ),
@@ -279,6 +280,10 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                     ),
                   ),
+                  
+                  const Spacer(),
+                  
+                  // BOTTOM SECTION (Loading Bar + Platform Link)
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
