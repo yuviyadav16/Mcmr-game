@@ -65,19 +65,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _sfxPlayer = AudioPlayer();
 
     try {
-      // SABSE BADA FIX: Dono audio ko ek sath play karne ke liye AudioContext set kiya
+      // FIX: Yahan se 'const' hata diya gaya hai taaki GitHub build error na aaye
       await AudioPlayer.global.setAudioContext(
-        const AudioContext(
+        AudioContext(
           android: AudioContextAndroid(
             isSpeakerphoneOn: false,
             stayAwake: true,
             contentType: AndroidContentType.music,
             usageType: AndroidUsageType.game,
-            audioFocus: AndroidAudioFocus.none, // <-- Ye line dusre sound ko rukne nahi degi!
+            audioFocus: AndroidAudioFocus.none, 
           ),
           iOS: AudioContextIOS(
             category: AVAudioSessionCategory.ambient,
-            options: {AVAudioSessionOptions.mixWithOthers}, // <-- iPhone ke liye fix
+            options: const {AVAudioSessionOptions.mixWithOthers},
           ),
         ),
       );
@@ -103,7 +103,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         isSfxEnabled = prefs.getBool('sfx_enabled') ?? true;
       });
 
-      // BGM play karo agar setting ON hai
       if (isBgmEnabled) {
         if (_bgmPlayer.state != PlayerState.playing) {
           await _bgmPlayer.play(AssetSource('audio/2308.mp3'));
@@ -112,7 +111,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         await _bgmPlayer.stop();
       }
 
-      // SFX Timer Reset
       _sfxTimer?.cancel();
       _sfxTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
         if (mounted && isSfxEnabled) {
@@ -139,7 +137,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Black screen fade-in (Bina orange loading spinner ke)
           AnimatedOpacity(
             opacity: _videoController.value.isInitialized ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 1000), 
@@ -184,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             icon: const Icon(Icons.settings, color: Colors.white, size: 30),
                             onPressed: () async {
                               await Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
-                              _loadUserData(); // Settings se wapas aane par music update hoga
+                              _loadUserData(); 
                             },
                           ),
                         ],
