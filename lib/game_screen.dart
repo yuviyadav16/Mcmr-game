@@ -21,19 +21,28 @@ class _GameScreenState extends State<GameScreen> {
 
   // --- Audio System ---
   late AudioPlayer _bgmPlayer;
-  late AudioPlayer _sfxPlayer; // Jump, slide, crash ke liye
+  late AudioPlayer _sfxPlayer;
 
   // --- Player Physics & Lanes ---
   int _currentLane = 0; // -1 (Left), 0 (Center), 1 (Right)
-  double _characterY = 0; // Jump height (0 is ground)
+  double _characterY = 0; // Jump height
   double _gravity = 2.5; 
   double _jumpVelocity = -18.0;
   double _currentVelocity = 0;
   bool _isJumping = false;
   String _playerState = 'run'; // 'run', 'jump', 'slide', 'stumble'
   
-  // Character asset selection (Modi or Meloni)
-  String _selectedCharacter = 'modi'; // change to 'meloni' dynamically later
+  // Character asset selection
+  String _selectedCharacter = 'modi'; 
+
+  // --- PLAYER VIDEO CONTROLLER (Asli Modi/Meloni dikhane ke liye) ---
+  VideoPlayerController? _playerRunController;
+  VideoPlayerController? _playerJumpController;
+  VideoPlayerController? _playerSlideController;
+
+  // --- CID Inspector State ---
+  bool _showCID = false;
+  VideoPlayerController? _cidRunController;
 
   // --- Game Engine Timers ---
   Timer? _physicsTimer;
@@ -46,32 +55,62 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     _initAudio();
     _initVideoMapSequence();
+    _initPlayerVideos(); // Character ki .webm load karna
     _startPhysicsEngine();
     _startGameLoop();
+  }
+
+  void _initPlayerVideos() {
+    // RUN Video (e.g. assets/players/modi_run.webm)[span_7](start_span)[span_7](end_span)
+    _playerRunController = VideoPlayerController.asset('assets/players/${_selectedCharacter}_run.webm')
+      ..initialize().then((_) {
+        _playerRunController!.setLooping(true);
+        _playerRunController!.play();
+        setState(() {});
+      });
+      
+    // JUMP Video (e.g. assets/players/modi_jump.webm)[span_8](start_span)[span_8](end_span)
+    _playerJumpController = VideoPlayerController.asset('assets/players/${_selectedCharacter}_jump.webm')
+      ..initialize().then((_) {
+        _playerJumpController!.setLooping(true);
+      });
+      
+    // SLIDE Video (e.g. assets/players/modi_slide.webm)[span_9](start_span)[span_9](end_span)
+    _playerSlideController = VideoPlayerController.asset('assets/players/${_selectedCharacter}_slide.webm')
+      ..initialize().then((_) {
+        _playerSlideController!.setLooping(true);
+      });
+
+    // CID Inspector Video[span_10](start_span)[span_10](end_span)
+    _cidRunController = VideoPlayerController.asset('assets/inspector/cid_run.webm')
+      ..initialize().then((_) {
+        _cidRunController!.setLooping(true);
+        _cidRunController!.play();
+      });
   }
 
   void _initAudio() async {
     _bgmPlayer = AudioPlayer();
     _sfxPlayer = AudioPlayer();
     _bgmPlayer.setReleaseMode(ReleaseMode.loop);
-    await _bgmPlayer.play(AssetSource('audio/yuvi.mp3')); // Background BGM
+    await _bgmPlayer.play(AssetSource('audio/yuvi.mp3'));[span_11](start_span)[span_11](end_span)
   }
 
   void _playSound(String type) async {
-    if (type == 'jump') await _sfxPlayer.play(AssetSource('audio/sfx/player/modi_jump.mp3'));
-    if (type == 'slide') await _sfxPlayer.play(AssetSource('audio/sfx/player/slide.mp3')); // add slide sound if any
+    if (type == 'jump') await _sfxPlayer.play(AssetSource('audio/sfx/player/${_selectedCharacter}_jump.mp3'));[span_12](start_span)[span_12](end_span)
+    if (type == 'slide') await _sfxPlayer.play(AssetSource('audio/sfx/player/slide.mp3'));
   }
 
   // --- Video Sequence Logic (1 -> 2 -> 3 -> 4 -> 5 -> 1) ---
   void _initVideoMapSequence() {
-    _bgController1 = VideoPlayerController.asset('assets/gb/gb1.mp4')
+    _bgController1 = VideoPlayerController.asset('assets/gb/gb1.mp4')[span_13](start_span)[span_13](end_span)
       ..initialize().then((_) {
         _bgController1.play();
         _bgController1.setLooping(true); 
         setState(() {});
         _scheduleNextVideo(1);
       });
-    _bgController2 = VideoPlayerController.asset('assets/gb/gb2.mp4')..initialize();
+    _bgController2 = VideoPlayerController.asset('assets/gb/gb2.mp4')..initialize();[span_14](start_span)[span_14](end_span)
   }
 
   void _scheduleNextVideo(int index) {
@@ -113,15 +152,30 @@ class _GameScreenState extends State<GameScreen> {
         _currentVelocity += _gravity;
         _characterY -= _currentVelocity;
 
-        if (_characterY <= 0) { // Hit Ground
+        if (_characterY <= 0) { 
           _characterY = 0;
           _isJumping = false;
           _currentVelocity = 0;
-          if (_playerState == 'jump') _playerState = 'run';
+          if (_playerState == 'jump') _changePlayerState('run');
         }
         setState(() {});
       }
     });
+  }
+  
+  void _changePlayerState(String newState) {
+    setState(() {
+      _playerState = newState;
+    });
+    
+    // Manage which player video is playing
+    _playerRunController?.pause();
+    _playerJumpController?.pause();
+    _playerSlideController?.pause();
+    
+    if (newState == 'run') _playerRunController?.play();
+    if (newState == 'jump') _playerJumpController?.play();
+    if (newState == 'slide') _playerSlideController?.play();
   }
 
   void _startGameLoop() {
@@ -133,52 +187,40 @@ class _GameScreenState extends State<GameScreen> {
       }
     });
     
-    // Separate timer for seconds
     Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) { timer.cancel(); return; }
       _elapsedSeconds++;
       
       // TRIGGER ENEMIES AFTER 4 MINUTES (240 SECONDS)
       if (_elapsedSeconds > 240) {
-        // We will call _spawnEnemy() here later
+        // Will call _spawnEnemy() here
       }
     });
   }
 
   // --- 3-Lane Swipe Controls ---
   void _onSwipeUpdate(DragUpdateDetails details) {
-    // Horizontal Swipes (Left/Right)
     if (details.delta.dx > 10) {
-      // Swipe Right
-      if (_currentLane < 1) {
-        setState(() { _currentLane += 1; });
-      }
+      if (_currentLane < 1) setState(() { _currentLane += 1; });
     } else if (details.delta.dx < -10) {
-      // Swipe Left
-      if (_currentLane > -1) {
-        setState(() { _currentLane -= 1; });
-      }
+      if (_currentLane > -1) setState(() { _currentLane -= 1; });
     }
   }
 
   void _onSwipeEnd(DragEndDetails details) {
-    // Vertical Swipes (Up/Down)
     if (details.primaryVelocity! < -300 && !_isJumping) {
-      // Jump
       _isJumping = true;
       _currentVelocity = _jumpVelocity;
-      setState(() { _playerState = 'jump'; });
+      _changePlayerState('jump');
       _playSound('jump');
     } else if (details.primaryVelocity! > 300) {
-      // Slide
       if (!_isJumping) {
-        setState(() { _playerState = 'slide'; });
+        _changePlayerState('slide');
         _playSound('slide');
         Future.delayed(const Duration(milliseconds: 800), () {
-          if (mounted && _playerState == 'slide') setState(() { _playerState = 'run'; });
+          if (mounted && _playerState == 'slide') _changePlayerState('run');
         });
       } else {
-        // Fast Fall
         _currentVelocity += 15.0; 
       }
     }
@@ -191,6 +233,10 @@ class _GameScreenState extends State<GameScreen> {
     _gameTimer?.cancel();
     _bgController1.dispose();
     _bgController2.dispose();
+    _playerRunController?.dispose();
+    _playerJumpController?.dispose();
+    _playerSlideController?.dispose();
+    _cidRunController?.dispose();
     _bgmPlayer.dispose();
     _sfxPlayer.dispose();
     super.dispose();
@@ -200,10 +246,9 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     VideoPlayerController activeBg = _useController1 ? _bgController1 : _bgController2;
 
-    // Map -1, 0, 1 to Screen Alignment
     Alignment playerAlignment = Alignment.bottomCenter;
-    if (_currentLane == -1) playerAlignment = const Alignment(-0.6, 1.0); // Left Lane
-    if (_currentLane == 1) playerAlignment = const Alignment(0.6, 1.0);  // Right Lane
+    if (_currentLane == -1) playerAlignment = const Alignment(-0.6, 1.0); 
+    if (_currentLane == 1) playerAlignment = const Alignment(0.6, 1.0);  
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -228,20 +273,34 @@ class _GameScreenState extends State<GameScreen> {
             else
               const Center(child: CircularProgressIndicator(color: Colors.orange)),
 
-            // LAYER 2: Obstacles & Trains (Coming in next step)
-            // _buildObstacles(),
+            // LAYER 2: Obstacles & Trains Placeholder
+            // Abhi ke liye ek dummy train dikha rahe hain track ke alignment test karne ke liye
+            _buildObstacles(),
 
-            // LAYER 3: Character (Modi / Meloni)
+            // LAYER 3: Character (Asli WebM Video) & CID
             Align(
               alignment: playerAlignment,
               child: Transform.translate(
-                offset: Offset(0, -_characterY), // Jump Physics applies here
+                offset: Offset(0, -_characterY), 
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 60.0), // Base ground margin
+                  padding: const EdgeInsets.only(bottom: 60.0), 
                   child: _buildPlayerCharacter(),
                 ),
               ),
             ),
+            
+            // CID Inspector (Invisible unless _showCID is true)
+            if (_showCID && _cidRunController != null && _cidRunController!.value.isInitialized)
+               Align(
+                 alignment: playerAlignment, // CID player ki lane me aayega
+                 child: Padding(
+                   padding: const EdgeInsets.only(bottom: 10.0), // Player ke thoda peeche
+                   child: SizedBox(
+                     width: 100, height: 130,
+                     child: VideoPlayer(_cidRunController!),
+                   )
+                 )
+               ),
 
             // LAYER 4: Game HUD (Heads Up Display)
             SafeArea(
@@ -253,9 +312,7 @@ class _GameScreenState extends State<GameScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.pause_circle_filled, color: Colors.white, size: 45),
-                      onPressed: () {
-                        // Pause Logic
-                      },
+                      onPressed: () {},
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -279,35 +336,36 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  // Asli Video Player Return Karega
   Widget _buildPlayerCharacter() {
-    // Bhai, Flutter default video player me transparent WebM play karne me black background de deta hai.
-    // Isliye temporarily hum image placeholder laga rahe hain jab tak transparent check nahi kar lete.
-    // Asli game me yahan tumhara WebM Widget aayega.
-    
-    IconData icon = Icons.directions_run;
-    Color color = Colors.orange;
-    
-    if (_playerState == 'jump') { icon = Icons.arrow_upward; color = Colors.green; }
-    if (_playerState == 'slide') { icon = Icons.arrow_downward; color = Colors.blue; }
-    if (_playerState == 'stumble') { icon = Icons.warning; color = Colors.red; }
+    VideoPlayerController? activeController;
+    if (_playerState == 'run') activeController = _playerRunController;
+    else if (_playerState == 'jump') activeController = _playerJumpController;
+    else if (_playerState == 'slide') activeController = _playerSlideController;
+    else activeController = _playerRunController; // fallback
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150), // Smooth lane switching
-      width: 100,
-      height: _playerState == 'slide' ? 60 : 130, // Slide hone par size chota
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.8),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: Colors.white),
-            Text(_selectedCharacter.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
-    );
+    if (activeController != null && activeController.value.isInitialized) {
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 120, // Adjust based on your webm aspect ratio
+        height: _playerState == 'slide' ? 80 : 150, 
+        child: VideoPlayer(activeController),
+      );
+    } else {
+       // Jab tak video load ho rahi hai, ek loading indicator
+       return const SizedBox(width: 50, height: 50, child: CircularProgressIndicator(color: Colors.blue));
+    }
+  }
+
+  // Obstacle Spawner Layer (Dummy train to test rendering)
+  Widget _buildObstacles() {
+     // Yahan hum baad me math use karke aage se peeche aati hui trains banayenge.
+     // Filhal testing ke liye Center track (0) par ek choti image laga dete hain
+     return Align(
+        alignment: const Alignment(0, -0.2), // Center lane, thoda upar (door)
+        child: Image.asset('assets/trains/normal_train_1green.png', width: 80, height: 80, errorBuilder: (context, error, stackTrace) {
+           return const Icon(Icons.train, size: 50, color: Colors.white);
+        }),
+     );
   }
 }
