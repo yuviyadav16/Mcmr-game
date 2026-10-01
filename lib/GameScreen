@@ -1,0 +1,245 @@
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+import 'dart:async';
+
+class GameScreen extends StatefulWidget {
+  const GameScreen({super.key});
+
+  @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  // Video Playlist Logic
+  late VideoPlayerController _bgController1;
+  late VideoPlayerController _bgController2;
+  bool _useController1 = true;
+  int _currentVideoIndex = 1;
+  Timer? _videoTimer;
+
+  // Physics & Character
+  double _characterY = 0; // Ground is 0
+  double _gravity = 2.0; // Neeche girne ki speed
+  double _jumpVelocity = -15.0; // Upar koodne ki speed
+  double _currentVelocity = 0;
+  bool _isJumping = false;
+  String _playerState = 'run'; // 'run', 'jump', 'slide'
+
+  // Timers
+  Timer? _physicsTimer;
+  Timer? _gameTimer;
+  int _elapsedSeconds = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initVideoPlayers();
+    _startPhysicsEngine();
+    _startGameTimer();
+  }
+
+  // --- Video Sequence Logic ---
+  void _initVideoPlayers() {
+    // Initial setup with double buffering for smooth transition
+    _bgController1 = VideoPlayerController.asset('assets/gb/gb1.mp4')..initialize().then((_) {
+      _bgController1.play();
+      _bgController1.setLooping(true); // Since it needs to run for 3 mins
+      setState(() {});
+      _startVideoSequenceTimer(1);
+    });
+    
+    // Pre-load the next one
+    _bgController2 = VideoPlayerController.asset('assets/gb/gb2.mp4')..initialize();
+  }
+
+  void _startVideoSequenceTimer(int index) {
+    _videoTimer?.cancel();
+    
+    if (index == 1 || index == 4 || index == 5) {
+      // 3 minutes (180 seconds) loop
+      _videoTimer = Timer(const Duration(minutes: 3), () {
+        _switchToNextVideo(index + 1);
+      });
+    } else if (index == 2 || index == 3) {
+      // Run once based on video duration
+      Duration videoLength = _useController1 ? _bgController1.value.duration : _bgController2.value.duration;
+      _videoTimer = Timer(videoLength, () {
+        _switchToNextVideo(index + 1);
+      });
+    }
+  }
+
+  void _switchToNextVideo(int nextIndex) async {
+    if (nextIndex > 5) nextIndex = 1; // Reset to start
+    
+    _currentVideoIndex = nextIndex;
+    String nextVideoPath = 'assets/gb/gb$nextIndex.mp4';
+    
+    // Double buffering switch
+    if (_useController1) {
+      // Setup Controller 2
+      _bgController2 = VideoPlayerController.asset(nextVideoPath);
+      await _bgController2.initialize();
+      _bgController2.play();
+      if (nextIndex == 1 || nextIndex == 4 || nextIndex == 5) {
+        _bgController2.setLooping(true);
+      }
+      setState(() { _useController1 = false; });
+      _bgController1.pause();
+    } else {
+      // Setup Controller 1
+      _bgController1 = VideoPlayerController.asset(nextVideoPath);
+      await _bgController1.initialize();
+      _bgController1.play();
+      if (nextIndex == 1 || nextIndex == 4 || nextIndex == 5) {
+        _bgController1.setLooping(true);
+      }
+      setState(() { _useController1 = true; });
+      _bgController2.pause();
+    }
+    
+    _startVideoSequenceTimer(nextIndex);
+  }
+
+  // --- Physics & Interaction Logic ---
+  void _startPhysicsEngine() {
+    _physicsTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) { // ~60fps
+      if (_isJumping || _characterY > 0) { // If in air
+        _currentVelocity += _gravity; // Apply gravity (pull down)
+        _characterY -= _currentVelocity; // Move character (y decreases as it goes up screen)
+
+        // Ground collision check
+        if (_characterY <= 0) {
+          _characterY = 0;
+          _isJumping = false;
+          _currentVelocity = 0;
+          if (_playerState == 'jump') _playerState = 'run';
+        }
+        
+        // --- ADD PLATFORM (TRAIN) COLLISION HERE LATER ---
+        // if (character intersects ramp train) { _characterY = trainHeight; ... }
+
+        setState(() {});
+      }
+    });
+  }
+
+  void _onSwipe(DragEndDetails details) {
+    if (details.primaryVelocity! < -100 && !_isJumping) {
+      // Swipe Up (Jump)
+      _isJumping = true;
+      _currentVelocity = _jumpVelocity; // Initial burst upwards
+      setState(() { _playerState = 'jump'; });
+    } else if (details.primaryVelocity! > 100) {
+      // Swipe Down (Slide)
+      if (!_isJumping) {
+        setState(() { _playerState = 'slide'; });
+        // Auto recover from slide after 1 sec
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted && _playerState == 'slide') setState(() { _playerState = 'run'; });
+        });
+      } else {
+        // Fast fall if swiped down while jumping
+        _currentVelocity += 10.0; 
+      }
+    }
+  }
+
+  // --- Obstacle Spawner Logic ---
+  void _startGameTimer() {
+    _gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _elapsedSeconds++;
+      
+      // Enemeis start after 4 minutes (240 seconds)
+      if (_elapsedSeconds > 240) {
+        _spawnEnemyLogic();
+      }
+      
+      // General trains/obstacles spawning
+      _spawnObstacleLogic();
+    });
+  }
+  
+  void _spawnEnemyLogic() {
+     // Here we will add logic to pick a random enemy (Fanta, Ravi, etc)
+     // and spawn them on a track. The frequency will increase as time goes on.
+  }
+  
+  void _spawnObstacleLogic() {
+     // Logic for normal trains, ramp trains, and barricades.
+     // Ramp train will have speed = 0 (stationary)
+  }
+
+  @override
+  void dispose() {
+    _videoTimer?.cancel();
+    _physicsTimer?.cancel();
+    _gameTimer?.cancel();
+    _bgController1.dispose();
+    _bgController2.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Current active controller
+    VideoPlayerController activeController = _useController1 ? _bgController1 : _bgController2;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onVerticalDragEnd: _onSwipe,
+        // Later add onHorizontalDragEnd for left/right movement
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1. Background Video Layer (Double Buffered)
+            if (activeController.value.isInitialized)
+              SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: activeController.value.size.width,
+                    height: activeController.value.size.height,
+                    child: VideoPlayer(activeController),
+                  ),
+                ),
+              )
+            else
+              const Center(child: CircularProgressIndicator()),
+
+            // 2. Obstacles & Enemies Layer (To be built)
+            
+            // 3. Player Layer
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Transform.translate(
+                offset: Offset(0, -_characterY), // Move Y based on physics
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 50.0), // Base ground level
+                  child: _buildPlayer(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayer() {
+    // Temporarily using icons/colors. We will replace this with your .webm videos
+    // return VideoPlayer(playerWebmController); 
+    
+    IconData icon = Icons.directions_run;
+    if (_playerState == 'jump') icon = Icons.arrow_upward;
+    if (_playerState == 'slide') icon = Icons.arrow_downward;
+    
+    return Container(
+      width: 80,
+      height: 120,
+      color: Colors.blue.withOpacity(0.5),
+      child: Icon(icon, size: 50, color: Colors.white),
+    );
+  }
+}
