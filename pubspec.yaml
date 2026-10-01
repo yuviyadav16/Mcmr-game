@@ -32,7 +32,17 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
+    # Purane Folders
     - assets/Image/
     - assets/Video/
     - assets/audio/
-
+    
+    # Naye AAA Game Engine Folders Jo Tumne Banaye Hain
+    - assets/audio/sfx/player/
+    - assets/audio/sfx/enemy/
+    - assets/gb/
+    - assets/trains/
+    - assets/obstacles/
+    - assets/players/
+    - assets/inspector/
+    - assets/animations/
