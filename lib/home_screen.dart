@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
+import 'game_screen.dart'; // Naya playground import kiya
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,15 +17,12 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late VideoPlayerController _videoController;
-  
   late AudioPlayer _bgmPlayer; 
-  
   late AnimationController _blinkController;
   late Animation<double> _blinkAnimation;
   
   int coins = 0; 
   int diamonds = 0;
-  
   bool isBgmEnabled = true;
 
   @override
@@ -61,7 +59,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _bgmPlayer = AudioPlayer();
 
     try {
-      // FIX: Yahan AudioContext aur uske andar se saare 'const' hata diye gaye hain
       await AudioPlayer.global.setAudioContext(
         AudioContext(
           android: AudioContextAndroid(
@@ -79,7 +76,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       );
 
       await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
-      
       await _loadUserData();
       
     } catch (e) {
@@ -93,7 +89,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       setState(() {
         coins = prefs.getInt('total_coins') ?? 0;
         diamonds = prefs.getInt('total_diamonds') ?? 0;
-        
         isBgmEnabled = prefs.getBool('bgm_enabled') ?? true;
       });
 
@@ -176,9 +171,35 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   
                   const Spacer(), 
 
+                  // --- UPDATED PLAY BUTTON LOGIC ---
                   GestureDetector(
-                    onTap: () {
-                      debugPrint("Game Started! yuvi.mp3 will keep playing.");
+                    onTap: () async {
+                      // 1. Memory bachane aur clash rokne ke liye media pause karo
+                      _videoController.pause();
+                      await _bgmPlayer.pause();
+
+                      // 2. AAA Smooth Fade Transition
+                      if (context.mounted) {
+                        await Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder: (context, animation, secondaryAnimation) => const GameScreen(),
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              );
+                            },
+                            transitionDuration: const Duration(milliseconds: 600), // Smooth 0.6s fade
+                          ),
+                        );
+                        
+                        // 3. Jab player Game Over hoke wapas Home par aaye, toh media dobara chalu karo
+                        if (mounted) {
+                          _loadUserData();
+                          _videoController.play();
+                        }
+                      }
                     },
                     child: FadeTransition(
                       opacity: _blinkAnimation,
